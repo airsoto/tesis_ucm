@@ -68,8 +68,8 @@ struct ThesisDetailView: View {
                 if let year = thesis.year {
                     Text(String(year))
                 }
-                if let language = thesis.language, !language.isEmpty {
-                    Text(language)
+                if thesis.hasPDF {
+                    Label("PDF", systemImage: "doc.richtext")
                 }
             }
             .font(.caption.weight(.semibold))
@@ -153,20 +153,24 @@ struct ThesisDetailView: View {
 
             metadataRow("Dirección", value: thesis.directorsText)
 
-            if let faculty = thesis.faculty, !faculty.isEmpty {
-                metadataRow("Facultad", value: faculty)
+            if let defenseDate = thesis.defenseDate, !defenseDate.isEmpty {
+                metadataRow("Fecha de defensa", value: defenseDate)
             }
 
-            if !thesis.subjects.isEmpty {
-                metadataRow("Materias", value: thesis.subjects.joined(separator: ", "))
+            if let pubDate = thesis.pubDate, !pubDate.isEmpty {
+                metadataRow("Fecha de publicación", value: pubDate)
+            }
+
+            if !thesis.subjectsUCM.isEmpty {
+                metadataRow("Materias UCM", value: thesis.subjectsUCM.joined(separator: ", "))
+            }
+
+            if !thesis.subjectsUNESCO.isEmpty {
+                metadataRow("Materias UNESCO", value: thesis.subjectsUNESCO.joined(separator: ", "))
             }
 
             if let year = thesis.year {
                 metadataRow("Año", value: String(year))
-            }
-
-            if let language = thesis.language, !language.isEmpty {
-                metadataRow("Idioma", value: language)
             }
         }
         .padding(16)
