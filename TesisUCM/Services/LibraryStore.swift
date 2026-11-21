@@ -120,6 +120,9 @@ final class LibraryStore: ObservableObject {
 
             while let result = try await group.next() {
                 orderedChunks[result.0] = result.1
+                await MainActor.run {
+                    self.downloadedChunkCount += 1
+                }
 
                 if nextIndex < count {
                     let index = nextIndex
