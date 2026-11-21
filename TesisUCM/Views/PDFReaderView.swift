@@ -5,9 +5,9 @@ struct PDFReaderView: View {
     let thesis: Thesis
 
     @EnvironmentObject private var library: LibraryStore
-    @AppStorage("reader.mode") private var mode: ReaderMode = .pdf
-    @AppStorage("reader.typeface") private var typeface: ReaderTypeface = .serif
-    @AppStorage("reader.size") private var textSize = 20.0
+    @State private var mode: ReaderMode = .adaptive
+    @AppStorage("reader.typeface") private var typeface: ReaderTypeface = .georgia
+    @AppStorage("reader.size") private var textSize = 19.0
     @AppStorage("reader.spacing") private var lineSpacing = 6.0
     @AppStorage("reader.margins") private var margins = 24.0
     @AppStorage("reader.palette") private var palette: ReaderPalette = .sepia
@@ -22,16 +22,18 @@ struct PDFReaderView: View {
     @State private var sheet: Sheet?
     @State private var loadError: String?
     @State private var loadAttempt = 0
+    @State private var scrubPage: Double?
 
     private enum Sheet: String, Identifiable {
-        case contents, search, appearance
+        case contents, search, text, appearance
         var id: Self { self }
 
         var title: String {
             switch self {
             case .contents: "Índice y marcadores"
             case .search: "Buscar en la tesis"
-            case .appearance: "Ajustes de lectura"
+            case .text: "Texto y tipografía"
+            case .appearance: "Apariencia"
             }
         }
     }
@@ -47,6 +49,7 @@ struct PDFReaderView: View {
                     Text(loadError)
                 } actions: {
                     Button("Reintentar") {
+                        library.removeDownloadedPDF(for: thesis)
                         self.loadError = nil
                         loadAttempt += 1
                     }
@@ -67,8 +70,8 @@ struct PDFReaderView: View {
     private func reader(_ document: PDFDocument, source: PDFReadingText) -> some View {
         VStack(spacing: 0) {
             Picker("Modo de lectura", selection: $mode) {
+                Text("Lectura adaptable").tag(ReaderMode.adaptive)
                 Text("PDF original").tag(ReaderMode.pdf)
-                Text("Texto adaptable").tag(ReaderMode.adaptive)
             }
             .pickerStyle(.segmented)
             .padding(.horizontal, 16)
@@ -101,12 +104,12 @@ struct PDFReaderView: View {
                 }
                 .accessibilityLabel("Buscar en la tesis")
 
-                Button {
-                    sheet = .appearance
-                } label: {
-                    Image(systemName: "textformat.size")
+                let marked = library.isBookmarked(page: currentPage, for: thesis.id)
+                Button(marked ? "Quitar marcador" : "Marcar página",
+                       systemImage: marked ? "bookmark.fill" : "bookmark") {
+                    library.toggleBookmark(page: currentPage, for: thesis.id)
                 }
-                .accessibilityLabel("Ajustes de lectura")
+                .labelStyle(.iconOnly)
             }
         }
         .sheet(item: $sheet) { active in
@@ -124,7 +127,9 @@ struct PDFReaderView: View {
         }
         .onChange(of: mode) { _, mode in
             if mode == .pdf { speech.stop() }
+            library.updateProgress(for: thesis.id, page: currentPage, pageCount: document.pageCount, mode: mode.rawValue)
         }
+        .toolbar(.hidden, for: .tabBar)
     }
 
     private func adaptivePage(count: Int, source: PDFReadingText) -> some View {
@@ -145,6 +150,7 @@ struct PDFReaderView: View {
                     AdaptiveReaderPage(
                         page: textPage,
                         initialFragment: library.progress[thesis.id]?.fragment,
+                        chapter: contents.last { $0.page == page && $0.depth == 0 }?.title,
                         typeface: typeface,
                         size: textSize,
                         lineSpacing: lineSpacing,
@@ -172,64 +178,77 @@ struct PDFReaderView: View {
     }
 
     private func readerControls(count: Int) -> some View {
-        VStack(spacing: 0) {
-            if mode == .adaptive, let textPage, textPage.number == currentPage, !textPage.paragraphs.isEmpty {
-                HStack {
-                    Button {
-                        speech.toggle(text: textPage.paragraphs.joined(separator: "\n\n"), rate: speechRate)
-                    } label: {
-                        let pause = speech.isSpeaking && !speech.isPaused
-                        Label(pause ? "Pausar" : (speech.isPaused ? "Reanudar" : "Escuchar página"),
-                              systemImage: pause ? "pause.fill" : "speaker.wave.2")
-                    }
-                    Spacer()
-                    if speech.isSpeaking {
-                        Button("Detener", systemImage: "stop.fill") { speech.stop() }
-                            .labelStyle(.iconOnly)
-                    }
-                }
-                .font(.subheadline.weight(.semibold))
-                .padding(.horizontal, 16)
-                .frame(minHeight: 44)
-                Divider()
-            }
-
-            HStack(spacing: 0) {
-                Button("Índice y marcadores", systemImage: "list.bullet") { sheet = .contents }
-                    .labelStyle(.iconOnly)
-                Spacer(minLength: 0)
+        let readablePage = textPage.flatMap { $0.number == currentPage && !$0.paragraphs.isEmpty ? $0 : nil }
+        return VStack(spacing: 6) {
+            HStack(spacing: 8) {
                 Button("Página anterior", systemImage: "chevron.left") {
                     navigate(to: currentPage - 1, count: count)
                 }
                 .labelStyle(.iconOnly)
                 .disabled(currentPage <= 1)
 
+                if count > 1 {
+                    Slider(value: Binding(
+                        get: { scrubPage ?? Double(currentPage) },
+                        set: { scrubPage = $0 }
+                    ), in: 1...Double(count), step: 1) { editing in
+                        if !editing, let page = scrubPage {
+                            scrubPage = nil
+                            navigate(to: Int(page), count: count)
+                        }
+                    }
+                    .accessibilityLabel("Página del documento")
+                }
                 Button {
                     sheet = .contents
                 } label: {
-                    Text("\(currentPage) / \(count)")
-                        .font(.subheadline.monospacedDigit())
+                    Text("\(Int(scrubPage ?? Double(currentPage))) de \(count)")
+                        .font(.caption.monospacedDigit())
                 }
-                .accessibilityLabel("Página \(currentPage) de \(count). Ir a una página.")
+                .accessibilityLabel("Ir a una página. Página \(currentPage) de \(count).")
 
                 Button("Página siguiente", systemImage: "chevron.right") {
                     navigate(to: currentPage + 1, count: count)
                 }
                 .labelStyle(.iconOnly)
                 .disabled(currentPage >= count)
-                Spacer(minLength: 0)
-                let marked = library.isBookmarked(page: currentPage, for: thesis.id)
-                Button(marked ? "Quitar marcador" : "Marcar página",
-                       systemImage: marked ? "bookmark.fill" : "bookmark") {
-                    library.toggleBookmark(page: currentPage, for: thesis.id)
-                }
-                .labelStyle(.iconOnly)
             }
             .buttonStyle(ReaderControlStyle())
-            .padding(.horizontal, 8)
+
+            HStack(spacing: 7) {
+                if mode == .adaptive {
+                    panelButton("Texto", icon: "textformat.size") { sheet = .text }
+                    panelButton("Apariencia", icon: "sun.max") { sheet = .appearance }
+                    panelButton(speech.isPaused ? "Reanudar" : (speech.isSpeaking ? "Pausar" : "Escuchar"),
+                                icon: speech.isSpeaking && !speech.isPaused ? "pause.fill" : "headphones") {
+                        if let readablePage {
+                            speech.toggle(text: readablePage.paragraphs.joined(separator: "\n\n"), rate: speechRate)
+                        }
+                    }
+                    .disabled(readablePage == nil)
+                    .contextMenu {
+                        if speech.isSpeaking { Button("Detener lectura") { speech.stop() } }
+                    }
+                }
+                panelButton("Índice", icon: "list.bullet") { sheet = .contents }
+            }
         }
+        .padding(.horizontal, 12)
+        .padding(.bottom, 8)
         .foregroundStyle(AppTheme.burgundy)
         .background(AppTheme.paper)
+    }
+
+    private func panelButton(_ title: String, icon: String, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon).font(.title3).accessibilityHidden(true)
+                Text(title).font(.caption.weight(.medium)).multilineTextAlignment(.center)
+            }
+            .frame(maxWidth: .infinity, minHeight: 56)
+            .background(AppTheme.cream, in: RoundedRectangle(cornerRadius: 13))
+        }
+        .buttonStyle(.borderless)
     }
 
     @ViewBuilder
@@ -250,14 +269,15 @@ struct PDFReaderView: View {
                 navigate(to: page, count: count, query: query)
                 sheet = nil
             }
-        case .appearance:
+        case .text, .appearance:
             ReaderAppearanceView(
                 typeface: $typeface,
                 size: $textSize,
                 spacing: $lineSpacing,
                 margins: $margins,
                 palette: $palette,
-                speechRate: $speechRate
+                speechRate: $speechRate,
+                appearanceOnly: active == .appearance
             )
         }
     }
@@ -271,7 +291,7 @@ struct PDFReaderView: View {
     private func updatePage(_ page: Int, count: Int) {
         if page != currentPage { speech.stop() }
         currentPage = page
-        library.updateProgress(for: thesis.id, page: page, pageCount: count)
+        library.updateProgress(for: thesis.id, page: page, pageCount: count, mode: mode.rawValue)
     }
 
     @MainActor
@@ -288,7 +308,10 @@ struct PDFReaderView: View {
                 throw URLError(.cannotDecodeContentData)
             }
 
-            let savedPage = library.progress[thesis.id]?.page ?? 1
+            let progress = library.progress[thesis.id]
+            let savedPage = progress?.page ?? 1
+            let legacyMode = UserDefaults.standard.string(forKey: "reader.mode").flatMap(ReaderMode.init(rawValue:))
+            mode = progress?.mode.flatMap(ReaderMode.init(rawValue:)) ?? legacyMode ?? .adaptive
             currentPage = min(max(savedPage, 1), pdf.pageCount)
             contents = ReaderChapter.table(in: pdf)
             source = PDFReadingText(url: fileURL)
@@ -320,6 +343,7 @@ private struct ReaderControlStyle: ButtonStyle {
 
 private struct AdaptiveReaderPage: View {
     let page: PDFReadingPage
+    let chapter: String?
     let typeface: ReaderTypeface
     let size: Double
     let lineSpacing: Double
@@ -330,10 +354,11 @@ private struct AdaptiveReaderPage: View {
     @ScaledMetric(relativeTo: .body) private var baseSize = 20.0
     @State private var position: Int?
 
-    init(page: PDFReadingPage, initialFragment: Int?, typeface: ReaderTypeface,
+    init(page: PDFReadingPage, initialFragment: Int?, chapter: String?, typeface: ReaderTypeface,
          size: Double, lineSpacing: Double, margins: Double, palette: ReaderPalette,
          onPositionChanged: @escaping (Int) -> Void) {
         self.page = page
+        self.chapter = chapter
         self.typeface = typeface
         self.size = size
         self.lineSpacing = lineSpacing
@@ -346,9 +371,14 @@ private struct AdaptiveReaderPage: View {
     var body: some View {
         ScrollView {
             LazyVStack(alignment: .leading, spacing: 16) {
+                if let chapter {
+                    Text(chapter)
+                        .font(typeface.font(size: baseSize * size / 20 + 10).bold())
+                        .accessibilityAddTraits(.isHeader)
+                }
                 ForEach(page.paragraphs.indices, id: \.self) { index in
                     Text(page.paragraphs[index])
-                        .font(.system(size: baseSize * size / 20, design: typeface.design))
+                        .font(typeface.font(size: baseSize * size / 20))
                         .lineSpacing(lineSpacing)
                         .textSelection(.enabled)
                         .frame(maxWidth: .infinity, alignment: .leading)

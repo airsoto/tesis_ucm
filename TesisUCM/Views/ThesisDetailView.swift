@@ -27,6 +27,7 @@ struct ThesisDetailView: View {
                 }
 
                 notesBlock
+                citationBlock
 
                 if let landingURL = thesis.landingURL {
                     Link(destination: landingURL) {
@@ -203,6 +204,28 @@ struct ThesisDetailView: View {
                     .foregroundStyle(AppTheme.burgundy)
             }
         }
+    }
+
+    private var citationBlock: some View {
+        VStack(alignment: .leading, spacing: 11) {
+            sectionTitle("Citar y compartir")
+            ShareLink(item: thesis.apaCitation) {
+                Label("Compartir cita APA", systemImage: "quote.closing")
+            }
+            ShareLink(item: thesis.bibTeXCitation) {
+                Label("Compartir BibTeX", systemImage: "curlybraces")
+            }
+            if let url = thesis.citationLink {
+                ShareLink(item: url) {
+                    Label("Compartir enlace", systemImage: "square.and.arrow.up")
+                }
+            }
+        }
+        .font(.subheadline.weight(.medium))
+        .foregroundStyle(AppTheme.burgundy)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(16)
+        .background(AppTheme.paper, in: RoundedRectangle(cornerRadius: 16))
     }
 
     private func sectionTitle(_ title: String) -> some View {

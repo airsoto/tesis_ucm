@@ -15,6 +15,7 @@ struct ThesisManifest: Decodable {
     let sourcePath: String?
     let dataFormat: String?
     let summaryIndexShards: Int?
+    let chunkSHA256: [String: String]?
 }
 
 struct ThesisSubjectCount: Decodable, Identifiable {
@@ -35,6 +36,8 @@ struct Thesis: Identifiable, Decodable, Hashable {
     let subjectsUNESCO: [String]
     let pdf: URL?
     let link: URL?
+    let faculty: String?
+    let language: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -49,6 +52,8 @@ struct Thesis: Identifiable, Decodable, Hashable {
         case subjectsUNESCO = "subjects_unesco"
         case pdf
         case link
+        case faculty
+        case language
     }
 
     init(from decoder: Decoder) throws {
@@ -64,6 +69,8 @@ struct Thesis: Identifiable, Decodable, Hashable {
         subjectsUNESCO = (try? values.decode([String].self, forKey: .subjectsUNESCO)) ?? []
         pdf = Self.decodeURL(values, key: .pdf)
         link = Self.decodeURL(values, key: .link)
+        faculty = Self.decodeFlexibleString(values, key: .faculty)?.trimmingCharacters(in: .whitespacesAndNewlines)
+        language = Self.decodeFlexibleString(values, key: .language)?.trimmingCharacters(in: .whitespacesAndNewlines)
 
         if let stringID = try? values.decode(String.self, forKey: .id) {
             id = stringID
@@ -134,8 +141,6 @@ struct Thesis: Identifiable, Decodable, Hashable {
     var subjects: [String] { subjectsUCM }
     var pdfURL: URL? { pdf }
     var landingURL: URL? { link }
-    var faculty: String? { nil }
-    var language: String? { nil }
     var isPDFAvailable: Bool { pdf != nil }
     var hasPDF: Bool { pdf != nil }
 }
@@ -145,6 +150,7 @@ struct ReadingProgress: Codable, Equatable {
     var pageCount: Int
     var updatedAt: Date
     var fragment: Int? = nil
+    var mode: String? = nil
 
     var percentage: Int {
         guard pageCount > 0 else { return 0 }

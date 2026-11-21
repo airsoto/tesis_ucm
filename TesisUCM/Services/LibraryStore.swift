@@ -1,5 +1,6 @@
 import Foundation
 import Combine
+import PDFKit
 
 @MainActor
 final class LibraryStore: ObservableObject {
@@ -30,17 +31,23 @@ final class LibraryStore: ObservableObject {
             .sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
     }
 
+    var downloadedTheses: [Thesis] {
+        theses.filter { downloadedIDs.contains($0.id) && isDownloaded($0) }
+    }
+
     func refreshCatalog() async {
         guard !isRefreshing else { return }
         isRefreshing = true
         defer { isRefreshing = false }
 
+        let bundledCatalog = Bundle.main.resourceURL?
+            .appendingPathComponent("Catalog", isDirectory: true)
+            .appendingPathComponent("Resources", isDirectory: true)
+
         do {
             if catalogManifest == nil,
                let local = await ThesisCatalog.loadLocal(
-                   bundled: Bundle.main.resourceURL?
-                       .appendingPathComponent("Catalog", isDirectory: true)
-                       .appendingPathComponent("Resources", isDirectory: true),
+                   bundled: bundledCatalog,
                    cache: catalogCacheDirectory
                ) {
                 useCatalog(local)
@@ -48,6 +55,7 @@ final class LibraryStore: ObservableObject {
 
             if let updated = try await ThesisCatalog.downloadUpdate(
                 from: remoteResourcesURL,
+                bundled: bundledCatalog,
                 cache: catalogCacheDirectory,
                 after: catalogManifest?.version
             ) {
@@ -89,12 +97,13 @@ final class LibraryStore: ObservableObject {
         persistLocalState()
     }
 
-    func updateProgress(for thesisID: String, page: Int, pageCount: Int, fragment: Int? = nil) {
+    func updateProgress(for thesisID: String, page: Int, pageCount: Int, fragment: Int? = nil, mode: String? = nil) {
         guard pageCount > 0 else { return }
         let safePage = min(max(page, 1), pageCount)
         let previous = progress[thesisID]
         let savedFragment = fragment ?? (previous?.page == safePage ? previous?.fragment : nil)
-        if previous?.page == safePage, previous?.pageCount == pageCount, previous?.fragment == savedFragment {
+        let savedMode = mode ?? previous?.mode
+        if previous?.page == safePage, previous?.pageCount == pageCount, previous?.fragment == savedFragment, previous?.mode == savedMode {
             return
         }
 
@@ -102,7 +111,8 @@ final class LibraryStore: ObservableObject {
             page: safePage,
             pageCount: pageCount,
             updatedAt: Date(),
-            fragment: savedFragment
+            fragment: savedFragment,
+            mode: savedMode
         )
         persistLocalState()
     }
@@ -147,6 +157,7 @@ final class LibraryStore: ObservableObject {
         }
 
         let (temporaryURL, response) = try await URLSession.shared.download(from: remoteURL)
+        defer { try? FileManager.default.removeItem(at: temporaryURL) }
         if let response = response as? HTTPURLResponse,
            !(200...299).contains(response.statusCode) {
             throw URLError(.badServerResponse)
@@ -161,9 +172,15 @@ final class LibraryStore: ObservableObject {
             .appendingPathComponent(safeFileName(for: thesis))
             .appendingPathExtension("pdf")
 
-        if FileManager.default.fileExists(atPath: destinationURL.path) {
-            try FileManager.default.removeItem(at: destinationURL)
-        }
+        // Another reader may have completed the same download while this task was waiting.
+        if FileManager.default.fileExists(atPath: destinationURL.path) { return destinationURL }
+        let readable = await Task.detached(priority: .utility) {
+            guard let pdf = PDFDocument(url: temporaryURL) else { return false }
+            return !pdf.isLocked && pdf.pageCount > 0
+        }.value
+        try Task.checkCancellation()
+        guard readable else { throw URLError(.cannotDecodeContentData) }
+        if FileManager.default.fileExists(atPath: destinationURL.path) { return destinationURL }
         try FileManager.default.moveItem(at: temporaryURL, to: destinationURL)
 
         downloadedIDs.insert(thesis.id)
@@ -173,9 +190,13 @@ final class LibraryStore: ObservableObject {
 
     func removeDownloadedPDF(for thesis: Thesis) {
         guard let url = localPDFURL(for: thesis) else { return }
-        try? FileManager.default.removeItem(at: url)
-        downloadedIDs.remove(thesis.id)
-        persistLocalState()
+        do {
+            try FileManager.default.removeItem(at: url)
+            downloadedIDs.remove(thesis.id)
+            persistLocalState()
+        } catch {
+            lastError = "No se ha podido eliminar la descarga: \(error.localizedDescription)"
+        }
     }
 
     private var applicationSupportDirectory: URL {

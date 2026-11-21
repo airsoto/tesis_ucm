@@ -15,12 +15,18 @@ struct PDFSearchResult: Identifiable, Sendable {
 actor PDFReadingText {
     private let url: URL
     private var document: PDFDocument?
+    private var recentPages: [PDFReadingPage] = []
 
     init(url: URL) {
         self.url = url
     }
 
     func page(_ number: Int) -> PDFReadingPage {
+        if let index = recentPages.firstIndex(where: { $0.number == number }) {
+            let cached = recentPages.remove(at: index)
+            recentPages.append(cached)
+            return cached
+        }
         let raw = openDocument()?.page(at: number - 1)?.string ?? ""
         var paragraphs: [String] = []
         var lines: [String] = []
@@ -40,7 +46,10 @@ actor PDFReadingText {
         }
         if !lines.isEmpty { paragraphs.append(lines.joined(separator: " ")) }
 
-        return PDFReadingPage(number: number, paragraphs: paragraphs)
+        let page = PDFReadingPage(number: number, paragraphs: paragraphs)
+        recentPages.append(page)
+        if recentPages.count > 8 { recentPages.removeFirst() }
+        return page
     }
 
     func search(_ query: String) async throws -> [PDFSearchResult] {

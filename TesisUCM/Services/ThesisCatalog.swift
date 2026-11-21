@@ -1,4 +1,5 @@
 import Foundation
+import CryptoKit
 
 struct ThesisCatalog {
     let manifest: ThesisManifest
@@ -25,7 +26,7 @@ struct ThesisCatalog {
         return try? load(bundledManifest, chunks: bundledChunks)
     }
 
-    static func downloadUpdate(from remote: URL, cache: URL, after version: Int?) async throws -> Self? {
+    static func downloadUpdate(from remote: URL, bundled: URL?, cache: URL, after version: Int?) async throws -> Self? {
         let manifestURL = remote.appendingPathComponent("catalog.json")
         let manifestData = try await download(manifestURL)
         let manifest = try decodeManifest(manifestData)
@@ -37,6 +38,10 @@ struct ThesisCatalog {
         defer { try? files.removeItem(at: staging) }
 
         let remoteChunks = remote.appendingPathComponent("chunks", isDirectory: true)
+        let previousManifest = readManifest(in: cache, name: "manifest.json")
+        let cachedChunks = previousManifest.map { versionDirectory(in: cache, version: $0.version) }
+        let bundledChunks = bundled?.appendingPathComponent("chunks", isDirectory: true)
+        let reusableDirectories = [cachedChunks, bundledChunks].compactMap { $0 }
         var chunks = Array(repeating: [Thesis](), count: manifest.chunks)
         try await withThrowingTaskGroup(of: (Int, [Thesis]).self) { group in
             for index in 0..<manifest.chunks {
@@ -45,7 +50,8 @@ struct ThesisCatalog {
                 }
                 group.addTask {
                     let name = chunkName(index)
-                    let data = try await download(remoteChunks.appendingPathComponent(name))
+                    let hash = manifest.chunkSHA256?[name]
+                    let data = try await loadChunk(name, hash: hash, local: reusableDirectories, remote: remoteChunks)
                     let records = try JSONDecoder().decode([Thesis].self, from: data)
                     try data.write(to: staging.appendingPathComponent(name), options: .atomic)
                     return (index, records)
@@ -63,7 +69,6 @@ struct ThesisCatalog {
         }
         try Task.checkCancellation()
 
-        let previousManifest = readManifest(in: cache, name: "manifest.json")
         let destination = versionDirectory(in: cache, version: manifest.version)
         if files.fileExists(atPath: destination.path) {
             try files.removeItem(at: destination)
@@ -123,6 +128,24 @@ struct ThesisCatalog {
         String(format: "chunk_%04d.json", index)
     }
 
+    private static func loadChunk(_ name: String, hash: String?, local: [URL], remote: URL) async throws -> Data {
+        if let hash {
+            for directory in local {
+                if let data = try? Data(contentsOf: directory.appendingPathComponent(name)),
+                   sha256(data) == hash {
+                    return data
+                }
+            }
+        }
+        let data = try await download(remote.appendingPathComponent(name))
+        if let hash, sha256(data) != hash { throw CatalogError.invalidChunk }
+        return data
+    }
+
+    private static func sha256(_ data: Data) -> String {
+        SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()
+    }
+
     private static func download(_ url: URL) async throws -> Data {
         let request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
         let (data, response) = try await URLSession.shared.data(for: request)
@@ -137,6 +160,7 @@ struct ThesisCatalog {
 private enum CatalogError: LocalizedError {
     case invalidManifest
     case invalidRecords
+    case invalidChunk
     case changedDuringDownload
 
     var errorDescription: String? {
@@ -145,6 +169,8 @@ private enum CatalogError: LocalizedError {
             return "El manifiesto del catálogo no es válido."
         case .invalidRecords:
             return "El catálogo está incompleto o contiene identificadores duplicados."
+        case .invalidChunk:
+            return "No se ha podido verificar un fragmento del catálogo."
         case .changedDuringDownload:
             return "Se publicó otra versión durante la descarga. Vuelve a intentarlo."
         }
