@@ -83,11 +83,11 @@ struct Thesis: Identifiable, Decodable, Hashable {
         _ values: KeyedDecodingContainer<CodingKeys>,
         key: CodingKeys
     ) -> String? {
-        if let string = try? values.decodeIfPresent(String.self, forKey: key) {
+        if let string = try? values.decode(String.self, forKey: key) {
             return string
         }
-        if let number = try? values.decodeIfPresent(Int.self, forKey: key) {
-            return number.map(String.init)
+        if let number = try? values.decode(Int.self, forKey: key) {
+            return String(number)
         }
         return nil
     }
@@ -96,8 +96,8 @@ struct Thesis: Identifiable, Decodable, Hashable {
         _ values: KeyedDecodingContainer<CodingKeys>,
         key: CodingKeys
     ) -> URL? {
-        guard let raw = try? values.decodeIfPresent(String.self, forKey: key),
-              let value = raw?.trimmingCharacters(in: .whitespacesAndNewlines),
+        guard let raw = try? values.decode(String.self, forKey: key),
+              let value = Optional(raw.trimmingCharacters(in: .whitespacesAndNewlines)),
               !value.isEmpty,
               let url = URL(string: value),
               ["http", "https"].contains(url.scheme?.lowercased() ?? "") else {
