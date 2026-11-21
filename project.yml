@@ -33,7 +33,11 @@ targets:
       - path: TesisUCM/Assets
       - path: TesisUCM/Resources
         type: folder
-        buildPhase: resources
+        # Keep the source folder out of the iOS bundle root for code signing.
+        buildPhase:
+          copyFiles:
+            destination: resources
+            subpath: Catalog
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: es.angelsoto.tesisucm

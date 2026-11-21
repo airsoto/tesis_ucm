@@ -38,7 +38,9 @@ final class LibraryStore: ObservableObject {
         do {
             if catalogManifest == nil,
                let local = await ThesisCatalog.loadLocal(
-                   bundled: Bundle.main.resourceURL?.appendingPathComponent("Resources"),
+                   bundled: Bundle.main.resourceURL?
+                       .appendingPathComponent("Catalog", isDirectory: true)
+                       .appendingPathComponent("Resources", isDirectory: true),
                    cache: catalogCacheDirectory
                ) {
                 useCatalog(local)

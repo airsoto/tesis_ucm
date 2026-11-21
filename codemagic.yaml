@@ -32,7 +32,7 @@ workflows:
       - name: Verify JSON catalog in the iPhone app
         script: |
           app="build/DerivedData/Build/Products/Debug-iphonesimulator/TesisUCM.app"
-          python3 scripts/verify_catalog.py "$app/Resources"
+          python3 scripts/verify_catalog.py "$app/Catalog/Resources"
 
     artifacts:
       - build/DerivedData/Build/Products/Debug-iphonesimulator/TesisUCM.app
@@ -76,7 +76,7 @@ workflows:
           destination="$(mktemp -d)"
           trap 'rm -rf "$destination"' EXIT
           /usr/bin/ditto -x -k "$1" "$destination"
-          python3 scripts/verify_catalog.py "$destination/Payload/TesisUCM.app/Resources"
+          python3 scripts/verify_catalog.py "$destination/Payload/TesisUCM.app/Catalog/Resources"
 
     artifacts:
       - build/ios/ipa/*.ipa
