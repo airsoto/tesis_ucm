@@ -12,6 +12,7 @@ struct PDFReaderView: View {
     @AppStorage("reader.margins") private var margins = 24.0
     @AppStorage("reader.palette") private var palette: ReaderPalette = .sepia
     @AppStorage("reader.speechRate") private var speechRate = 1.0
+    @AppStorage("reader.adaptiveLayout") private var adaptiveLayout: AdaptiveReadingLayout = .continuous
     @StateObject private var speech = ReaderSpeech()
     @State private var document: PDFDocument?
     @State private var source: PDFReadingText?
@@ -87,7 +88,7 @@ struct PDFReaderView: View {
                         onPageChanged: { updatePage($0, count: document.pageCount) }
                     )
                 } else {
-                    adaptivePage(count: document.pageCount, source: source)
+                    adaptiveReader(count: document.pageCount, source: source)
                 }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -132,6 +133,28 @@ struct PDFReaderView: View {
         .toolbar(.hidden, for: .tabBar)
     }
 
+    @ViewBuilder
+    private func adaptiveReader(count: Int, source: PDFReadingText) -> some View {
+        if adaptiveLayout == .continuous {
+            AdaptiveContinuousReader(
+                source: source,
+                count: count,
+                currentPage: $currentPage,
+                chapters: contents,
+                typeface: typeface,
+                size: textSize,
+                lineSpacing: lineSpacing,
+                margins: margins,
+                palette: palette,
+                onPositionChanged: { page, fragment in
+                    library.updateProgress(for: thesis.id, page: page, pageCount: count, fragment: fragment, mode: ReaderMode.adaptive.rawValue)
+                }
+            )
+        } else {
+            adaptivePage(count: count, source: source)
+        }
+    }
+
     private func adaptivePage(count: Int, source: PDFReadingText) -> some View {
         let page = currentPage
         return Group {
@@ -162,6 +185,22 @@ struct PDFReaderView: View {
                         }
                     )
                     .id(page)
+                    .overlay {
+                        GeometryReader { proxy in
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .simultaneousGesture(
+                                    SpatialTapGesture().onEnded { touch in
+                                        if touch.location.x >= proxy.size.width / 2 {
+                                            navigate(to: page + 1, count: count)
+                                        } else {
+                                            navigate(to: page - 1, count: count)
+                                        }
+                                    }
+                                )
+                            .accessibilityHidden(true)
+                        }
+                    }
                 }
             } else {
                 ProgressView("Preparando la página…")
@@ -277,6 +316,7 @@ struct PDFReaderView: View {
                 margins: $margins,
                 palette: $palette,
                 speechRate: $speechRate,
+                layout: $adaptiveLayout,
                 appearanceOnly: active == .appearance
             )
         }
@@ -310,8 +350,8 @@ struct PDFReaderView: View {
 
             let progress = library.progress[thesis.id]
             let savedPage = progress?.page ?? 1
-            let legacyMode = UserDefaults.standard.string(forKey: "reader.mode").flatMap(ReaderMode.init(rawValue:))
-            mode = progress?.mode.flatMap(ReaderMode.init(rawValue:)) ?? legacyMode ?? .adaptive
+            // Cada tesis comienza en el lector adaptable; el PDF original sigue disponible desde el selector.
+            mode = .adaptive
             currentPage = min(max(savedPage, 1), pdf.pageCount)
             contents = ReaderChapter.table(in: pdf)
             source = PDFReadingText(url: fileURL)
@@ -338,6 +378,122 @@ private struct ReaderControlStyle: ButtonStyle {
             .frame(minWidth: 44, minHeight: 44)
             .contentShape(Rectangle())
             .opacity(isEnabled ? (configuration.isPressed ? 0.55 : 1) : 0.32)
+    }
+}
+
+/// Reflows the extracted text across the available width.  Unlike the original PDF,
+/// this mode follows the reader's selected font, spacing and page margins.
+private struct AdaptiveContinuousReader: View {
+    let source: PDFReadingText
+    let count: Int
+    @Binding var currentPage: Int
+    let chapters: [ReaderChapter]
+    let typeface: ReaderTypeface
+    let size: Double
+    let lineSpacing: Double
+    let margins: Double
+    let palette: ReaderPalette
+    let onPositionChanged: (Int, Int) -> Void
+
+    @State private var hasScrolledToInitialPage = false
+    @State private var scrollDrivenPage: Int?
+
+    var body: some View {
+        ScrollViewReader { proxy in
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(1...count, id: \.self) { pageNumber in
+                        AdaptiveContinuousPage(
+                            pageNumber: pageNumber,
+                            source: source,
+                            chapter: chapters.last { $0.page == pageNumber && $0.depth == 0 }?.title,
+                            typeface: typeface,
+                            size: size,
+                            lineSpacing: lineSpacing,
+                            margins: margins,
+                            palette: palette,
+                            onPageVisible: { page in
+                                guard page != currentPage else { return }
+                                scrollDrivenPage = page
+                                currentPage = page
+                                onPositionChanged(page, 0)
+                            },
+                            onFragmentVisible: { page, fragment in
+                                onPositionChanged(page, fragment)
+                            }
+                        )
+                        .id(pageNumber)
+                    }
+                }
+            }
+            .task {
+                guard !hasScrolledToInitialPage else { return }
+                hasScrolledToInitialPage = true
+                // The first scroll must wait until the lazy stack has mounted.
+                try? await Task.sleep(for: .milliseconds(180))
+                guard !Task.isCancelled else { return }
+                proxy.scrollTo(currentPage, anchor: .top)
+            }
+            .onChange(of: currentPage) { _, page in
+                guard hasScrolledToInitialPage else { return }
+                if scrollDrivenPage == page {
+                    scrollDrivenPage = nil
+                    return
+                }
+                withAnimation(.easeInOut(duration: 0.22)) {
+                    proxy.scrollTo(page, anchor: .top)
+                }
+            }
+        }
+        .foregroundStyle(palette.foreground)
+        .background(palette.background)
+    }
+}
+
+private struct AdaptiveContinuousPage: View {
+    let pageNumber: Int
+    let source: PDFReadingText
+    let chapter: String?
+    let typeface: ReaderTypeface
+    let size: Double
+    let lineSpacing: Double
+    let margins: Double
+    let palette: ReaderPalette
+    let onPageVisible: (Int) -> Void
+    let onFragmentVisible: (Int, Int) -> Void
+
+    @ScaledMetric(relativeTo: .body) private var baseSize = 20.0
+    @State private var textPage: PDFReadingPage?
+
+    var body: some View {
+        Group {
+            if let textPage {
+                VStack(alignment: .leading, spacing: 16) {
+                    if let chapter {
+                        Text(chapter)
+                            .font(typeface.font(size: baseSize * size / 20 + 10).bold())
+                            .accessibilityAddTraits(.isHeader)
+                    }
+                    ForEach(textPage.paragraphs.indices, id: \.self) { index in
+                        Text(textPage.paragraphs[index])
+                            .font(typeface.font(size: baseSize * size / 20))
+                            .lineSpacing(lineSpacing)
+                            .textSelection(.enabled)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .onAppear { onFragmentVisible(pageNumber, index) }
+                    }
+                }
+                .padding(.horizontal, margins)
+                .padding(.vertical, 22)
+                .frame(maxWidth: 680)
+                .frame(maxWidth: .infinity, alignment: .center)
+                .onAppear { onPageVisible(pageNumber) }
+            } else {
+                ProgressView()
+                    .frame(maxWidth: .infinity, minHeight: 130)
+                    .task(id: pageNumber) { textPage = await source.page(pageNumber) }
+            }
+        }
     }
 }
 
