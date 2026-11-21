@@ -68,7 +68,7 @@ struct LibraryView: View {
 
                     if library.isRefreshing {
                         VStack(alignment: .leading, spacing: 8) {
-                            ProgressView(value: Double(library.downloadedChunkCount), total: Double(max(library.catalogManifest?.chunks ?? 1, 1)))
+                            ProgressView(value: Double(library.downloadedChunkCount), total: Double(max(library.catalogManifest?.chunks ?? 62, 1)))
                                 .tint(AppTheme.burgundy)
                             Text("Cargando base de datos: \(library.downloadedChunkCount)/\(library.catalogManifest?.chunks ?? 62) fragmentos")
                                 .font(.caption)
