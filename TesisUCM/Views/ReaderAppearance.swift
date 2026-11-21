@@ -65,6 +65,7 @@ struct ReaderAppearanceView: View {
     @Binding var margins: Double
     @Binding var palette: ReaderPalette
     @Binding var speechRate: Double
+    @Binding var layout: AdaptiveReadingLayout
     var appearanceOnly = false
 
     var body: some View {
@@ -104,6 +105,19 @@ struct ReaderAppearanceView: View {
                     ForEach(ReaderPalette.allCases) { Text($0.label).tag($0) }
                 }
                 .pickerStyle(.segmented)
+
+                if !appearanceOnly {
+                    Picker("Desplazamiento", selection: $layout) {
+                        ForEach(AdaptiveReadingLayout.allCases) { option in
+                            Text(option.label).tag(option)
+                        }
+                    }
+                    .pickerStyle(.segmented)
+
+                    Text(layout.detail)
+                        .font(.footnote)
+                        .foregroundStyle(AppTheme.muted)
+                }
             }
 
             Section("Vista previa") {
@@ -131,5 +145,26 @@ struct ReaderAppearanceView: View {
         }
         .scrollContentBackground(.hidden)
         .background(AppTheme.cream)
+    }
+}
+
+enum AdaptiveReadingLayout: String, CaseIterable, Identifiable {
+    case continuous
+    case paginated
+
+    var id: Self { self }
+
+    var label: String {
+        switch self {
+        case .continuous: "Continuo"
+        case .paginated: "Paginado"
+        }
+    }
+
+    var detail: String {
+        switch self {
+        case .continuous: "Desliza hacia abajo para leer sin interrupciones."
+        case .paginated: "Toca el lado derecho para avanzar y el izquierdo para volver."
+        }
     }
 }
