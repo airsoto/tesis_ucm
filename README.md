@@ -62,7 +62,7 @@ La aplicación conserva los campos originales. No asigna facultades ni idiomas c
 4. Guarda los fragmentos en el almacenamiento local de la aplicación.
 5. En siguientes aperturas comprueba la versión del manifiesto y reutiliza la caché si no ha cambiado.
 
-La búsqueda local consulta título, autores, directores, resumen y materias UCM/UNESCO. Los filtros disponibles se basan en el año de defensa y las clasificaciones UCM/UNESCO.
+La búsqueda local actual consulta título, autores, directores, resumen y materias UCM/UNESCO. Los filtros disponibles se basan en el año de defensa y las clasificaciones UCM/UNESCO. Los 36 fragmentos del índice invertido se han importado y quedan disponibles para optimizar futuras búsquedas por términos.
 
 Para publicar una actualización de la base de datos, hay que actualizar los JSON y aumentar \`version\` en el manifiesto \`catalog.json\`. Así la aplicación detectará que debe descargar los fragmentos nuevos.
 
