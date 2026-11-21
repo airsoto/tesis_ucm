@@ -54,6 +54,7 @@ struct SettingsView: View {
                     LabeledContent("Versión", value: appVersion)
                     LabeledContent("Plataforma", value: "iPhone")
                     LabeledContent("Lector", value: "PDFKit")
+                    LabeledContent("Desarrollado por", value: "Ángel Soto")
                 }
 
                 Section {
