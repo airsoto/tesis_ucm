@@ -4,46 +4,46 @@ struct LibraryView: View {
     @EnvironmentObject private var library: LibraryStore
     @State private var searchText = ""
     @State private var selectedYear = "Todos"
-    @State private var selectedFaculty = "Todas"
-    @State private var selectedSubject = "Todas"
+    @State private var selectedUCMSubject = "Todas"
+    @State private var selectedUNESCOSubject = "Todas"
 
     private var years: [String] {
         Set(library.theses.compactMap { $0.year }.map(String.init))
             .sorted(by: >)
     }
 
-    private var faculties: [String] {
-        Set(library.theses.compactMap(\.faculty).filter { !$0.isEmpty })
+    private var ucmSubjects: [String] {
+        Set(library.theses.flatMap(\.subjectsUCM).filter { !$0.isEmpty })
             .sorted()
     }
 
-    private var subjects: [String] {
-        Set(library.theses.flatMap(\.subjects).filter { !$0.isEmpty })
+    private var unescoSubjects: [String] {
+        Set(library.theses.flatMap(\.subjectsUNESCO).filter { !$0.isEmpty })
             .sorted()
     }
 
     private var filteredTheses: [Thesis] {
         library.theses.filter { thesis in
             let searchableText = (
-                [thesis.title, thesis.faculty ?? ""] +
+                [thesis.title, thesis.summary ?? "", thesis.pubDate ?? "", thesis.defenseDate ?? ""] +
                 thesis.authors +
                 thesis.directors +
-                thesis.subjects
+                thesis.subjectsUCM +
+                thesis.subjectsUNESCO
             )
             .joined(separator: " ")
             .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
 
-            let matchesSearch = searchText.isEmpty ||
-                searchableText.contains(searchText.folding(
-                    options: [.diacriticInsensitive, .caseInsensitive],
-                    locale: .current
-                ))
-
+            let normalizedQuery = searchText.folding(
+                options: [.diacriticInsensitive, .caseInsensitive],
+                locale: .current
+            )
+            let matchesSearch = searchText.isEmpty || searchableText.contains(normalizedQuery)
             let matchesYear = selectedYear == "Todos" || String(thesis.year ?? 0) == selectedYear
-            let matchesFaculty = selectedFaculty == "Todas" || thesis.faculty == selectedFaculty
-            let matchesSubject = selectedSubject == "Todas" || thesis.subjects.contains(selectedSubject)
+            let matchesUCM = selectedUCMSubject == "Todas" || thesis.subjectsUCM.contains(selectedUCMSubject)
+            let matchesUNESCO = selectedUNESCOSubject == "Todas" || thesis.subjectsUNESCO.contains(selectedUNESCOSubject)
 
-            return matchesSearch && matchesYear && matchesFaculty && matchesSubject
+            return matchesSearch && matchesYear && matchesUCM && matchesUNESCO
         }
         .sorted {
             if $0.year != $1.year {
@@ -54,7 +54,9 @@ struct LibraryView: View {
     }
 
     private var hasActiveFilters: Bool {
-        selectedYear != "Todos" || selectedFaculty != "Todas" || selectedSubject != "Todas"
+        selectedYear != "Todos" ||
+        selectedUCMSubject != "Todas" ||
+        selectedUNESCOSubject != "Todas"
     }
 
     var body: some View {
@@ -65,9 +67,13 @@ struct LibraryView: View {
                     filterBar
 
                     if library.isRefreshing {
-                        ProgressView("Actualizando catálogo…")
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .tint(AppTheme.burgundy)
+                        VStack(alignment: .leading, spacing: 8) {
+                            ProgressView(value: Double(library.downloadedChunkCount), total: Double(max(library.catalogManifest?.chunks ?? 1, 1)))
+                                .tint(AppTheme.burgundy)
+                            Text("Cargando base de datos: \(library.downloadedChunkCount)/\(library.catalogManifest?.chunks ?? 62) fragmentos")
+                                .font(.caption)
+                                .foregroundStyle(AppTheme.muted)
+                        }
                     }
 
                     if filteredTheses.isEmpty {
@@ -75,7 +81,7 @@ struct LibraryView: View {
                     } else {
                         VStack(spacing: 12) {
                             HStack {
-                                Text("\(filteredTheses.count) tesis")
+                                Text("\(filteredTheses.count.formatted()) tesis")
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(AppTheme.muted)
                                 Spacer()
@@ -99,7 +105,7 @@ struct LibraryView: View {
             .background(AppTheme.cream.ignoresSafeArea())
             .navigationTitle("Biblioteca")
             .navigationBarTitleDisplayMode(.large)
-            .searchable(text: $searchText, prompt: "Título, autor, director o materia")
+            .searchable(text: $searchText, prompt: "Título, autor, director, materia o resumen")
             .toolbar {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -129,6 +135,13 @@ struct LibraryView: View {
             Text("Una biblioteca académica en tu iPhone.")
                 .font(.subheadline)
                 .foregroundStyle(AppTheme.muted)
+
+            if let manifest = library.catalogManifest {
+                Text("\(manifest.total.formatted()) tesis · \(manifest.authors.formatted()) autores · \(manifest.subjects.formatted()) materias")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(AppTheme.burgundy)
+                    .padding(.top, 3)
+            }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.vertical, 8)
@@ -138,7 +151,7 @@ struct LibraryView: View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
                 Menu {
-                    Picker("Año", selection: $selectedYear) {
+                    Picker("Año de defensa", selection: $selectedYear) {
                         Text("Todos los años").tag("Todos")
                         ForEach(years, id: \.self) { year in
                             Text(year).tag(year)
@@ -149,32 +162,30 @@ struct LibraryView: View {
                 }
 
                 Menu {
-                    Picker("Facultad", selection: $selectedFaculty) {
-                        Text("Todas las facultades").tag("Todas")
-                        ForEach(faculties, id: \.self) { faculty in
-                            Text(faculty).tag(faculty)
-                        }
-                    }
-                } label: {
-                    filterLabel(selectedFaculty == "Todas" ? "Facultad" : selectedFaculty, icon: "building.columns")
-                }
-
-                Menu {
-                    Picker("Materia", selection: $selectedSubject) {
-                        Text("Todas las materias").tag("Todas")
-                        ForEach(subjects, id: \.self) { subject in
+                    Picker("Materia UCM", selection: $selectedUCMSubject) {
+                        Text("Todas las materias UCM").tag("Todas")
+                        ForEach(ucmSubjects, id: \.self) { subject in
                             Text(subject).tag(subject)
                         }
                     }
                 } label: {
-                    filterLabel(selectedSubject == "Todas" ? "Materia" : selectedSubject, icon: "tag")
+                    filterLabel(selectedUCMSubject == "Todas" ? "Materia UCM" : selectedUCMSubject, icon: "tag")
+                }
+
+                Menu {
+                    Picker("Materia UNESCO", selection: $selectedUNESCOSubject) {
+                        Text("Todas las materias UNESCO").tag("Todas")
+                        ForEach(unescoSubjects, id: \.self) { subject in
+                            Text(subject).tag(subject)
+                        }
+                    }
+                } label: {
+                    filterLabel(selectedUNESCOSubject == "Todas" ? "UNESCO" : selectedUNESCOSubject, icon: "globe.europe.africa")
                 }
 
                 if hasActiveFilters {
                     Button("Limpiar") {
-                        selectedYear = "Todos"
-                        selectedFaculty = "Todas"
-                        selectedSubject = "Todas"
+                        clearFilters()
                     }
                     .font(.caption.weight(.semibold))
                     .foregroundStyle(AppTheme.burgundy)
@@ -193,6 +204,13 @@ struct LibraryView: View {
             .overlay(Capsule().stroke(AppTheme.line, lineWidth: 1))
     }
 
+    private func clearFilters() {
+        searchText = ""
+        selectedYear = "Todos"
+        selectedUCMSubject = "Todas"
+        selectedUNESCOSubject = "Todas"
+    }
+
     @ViewBuilder
     private var emptyState: some View {
         VStack(spacing: 12) {
@@ -201,13 +219,13 @@ struct LibraryView: View {
                 .foregroundStyle(AppTheme.burgundy)
                 .padding(.bottom, 4)
 
-            Text(library.theses.isEmpty ? "La biblioteca está preparada" : "No hay resultados")
+            Text(library.theses.isEmpty ? "Preparando la biblioteca" : "No hay resultados")
                 .font(.system(size: 20, weight: .regular, design: .serif))
                 .foregroundStyle(AppTheme.ink)
 
             Text(
                 library.theses.isEmpty
-                ? "El catálogo todavía no contiene tesis. Cuando incorporemos los registros al repositorio, aparecerán aquí."
+                ? "La aplicación descargará el catálogo académico desde GitHub. Necesitas conexión a internet para la primera carga."
                 : "Prueba con otras palabras o elimina alguno de los filtros."
             )
             .font(.subheadline)
@@ -218,7 +236,7 @@ struct LibraryView: View {
                 Button {
                     Task { await library.refreshCatalog() }
                 } label: {
-                    Label("Actualizar catálogo", systemImage: "arrow.clockwise")
+                    Label("Cargar base de datos", systemImage: "arrow.down.circle")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 18)
@@ -226,12 +244,10 @@ struct LibraryView: View {
                         .background(AppTheme.burgundy, in: Capsule())
                 }
                 .padding(.top, 4)
+                .disabled(library.isRefreshing)
             } else if hasActiveFilters || !searchText.isEmpty {
                 Button("Borrar búsqueda y filtros") {
-                    searchText = ""
-                    selectedYear = "Todos"
-                    selectedFaculty = "Todas"
-                    selectedSubject = "Todas"
+                    clearFilters()
                 }
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(AppTheme.burgundy)
@@ -257,10 +273,6 @@ private struct ThesisCardView: View {
                     metadataPill("PDF disponible", icon: "doc.richtext")
                 }
                 Spacer(minLength: 0)
-                if thesis.isPDFAvailable == false {
-                    Image(systemName: "doc")
-                        .foregroundStyle(AppTheme.muted)
-                }
             }
 
             Text(thesis.title)
@@ -275,15 +287,17 @@ private struct ThesisCardView: View {
                 .lineLimit(2)
                 .frame(maxWidth: .infinity, alignment: .leading)
 
-            if let faculty = thesis.faculty, !faculty.isEmpty {
-                Label(faculty, systemImage: "building.columns")
+            if let summary = thesis.summary, !summary.isEmpty {
+                Text(summary)
                     .font(.caption)
                     .foregroundStyle(AppTheme.muted)
-                    .lineLimit(1)
+                    .lineLimit(3)
+                    .multilineTextAlignment(.leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
             }
 
             HStack {
-                if let firstSubject = thesis.subjects.first {
+                if let firstSubject = thesis.subjectsUCM.first {
                     Text(firstSubject)
                         .font(.caption.weight(.medium))
                         .foregroundStyle(AppTheme.burgundy)
