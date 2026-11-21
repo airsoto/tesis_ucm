@@ -1,13 +1,26 @@
 import Foundation
 
-struct ThesisCatalog: Decodable {
-    let updatedAt: String?
-    let theses: [Thesis]
+struct ThesisManifest: Decodable {
+    let version: Int
+    let total: Int
+    let authors: Int
+    let directors: Int
+    let subjects: Int
+    let minDefense: Int?
+    let maxDefense: Int?
+    let chunkSize: Int
+    let chunks: Int
+    let topSubjects: [ThesisSubjectCount]
+    let sourceRepository: String?
+    let sourcePath: String?
+    let dataFormat: String?
+    let summaryIndexShards: Int?
+}
 
-    enum CodingKeys: String, CodingKey {
-        case updatedAt
-        case theses
-    }
+struct ThesisSubjectCount: Decodable, Identifiable {
+    let name: String
+    let count: Int
+    var id: String { name }
 }
 
 struct Thesis: Identifiable, Decodable, Hashable {
@@ -15,44 +28,98 @@ struct Thesis: Identifiable, Decodable, Hashable {
     let title: String
     let authors: [String]
     let directors: [String]
-    let year: Int?
-    let faculty: String?
-    let subjects: [String]
-    let language: String?
-    let abstract: String?
-    let pdfURL: URL?
-    let landingURL: URL?
-    let isPDFAvailable: Bool?
+    let summary: String?
+    let pubDate: String?
+    let defenseDate: String?
+    let subjectsUCM: [String]
+    let subjectsUNESCO: [String]
+    let pdf: URL?
+    let link: URL?
 
     enum CodingKeys: String, CodingKey {
         case id
+        case legacyID = "_id"
         case title
         case authors
         case directors
-        case year
-        case faculty
-        case subjects
-        case language
-        case abstract
-        case pdfURL
-        case landingURL
-        case isPDFAvailable
+        case summary
+        case pubDate = "pub_date"
+        case defenseDate = "defense_date"
+        case subjectsUCM = "subjects_ucm"
+        case subjectsUNESCO = "subjects_unesco"
+        case pdf
+        case link
     }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
-        id = try values.decode(String.self, forKey: .id)
+
         title = try values.decode(String.self, forKey: .title)
         authors = (try? values.decode([String].self, forKey: .authors)) ?? []
         directors = (try? values.decode([String].self, forKey: .directors)) ?? []
-        year = try? values.decodeIfPresent(Int.self, forKey: .year)
-        faculty = try? values.decodeIfPresent(String.self, forKey: .faculty)
-        subjects = (try? values.decode([String].self, forKey: .subjects)) ?? []
-        language = try? values.decodeIfPresent(String.self, forKey: .language)
-        abstract = try? values.decodeIfPresent(String.self, forKey: .abstract)
-        pdfURL = try? values.decodeIfPresent(URL.self, forKey: .pdfURL)
-        landingURL = try? values.decodeIfPresent(URL.self, forKey: .landingURL)
-        isPDFAvailable = try? values.decodeIfPresent(Bool.self, forKey: .isPDFAvailable)
+        summary = try? values.decodeIfPresent(String.self, forKey: .summary)
+        pubDate = Self.decodeFlexibleString(values, key: .pubDate)
+        defenseDate = Self.decodeFlexibleString(values, key: .defenseDate)
+        subjectsUCM = (try? values.decode([String].self, forKey: .subjectsUCM)) ?? []
+        subjectsUNESCO = (try? values.decode([String].self, forKey: .subjectsUNESCO)) ?? []
+        pdf = Self.decodeURL(values, key: .pdf)
+        link = Self.decodeURL(values, key: .link)
+
+        if let stringID = try? values.decode(String.self, forKey: .id) {
+            id = stringID
+        } else if let numericID = try? values.decode(Int.self, forKey: .legacyID) {
+            id = String(numericID)
+        } else if let stringLegacyID = try? values.decode(String.self, forKey: .legacyID) {
+            id = stringLegacyID
+        } else {
+            throw DecodingError.keyNotFound(
+                CodingKeys.legacyID,
+                DecodingError.Context(codingPath: decoder.codingPath, debugDescription: "El registro no contiene _id.")
+            )
+        }
+    }
+
+    private static func decodeFlexibleString(
+        _ values: KeyedDecodingContainer<CodingKeys>,
+        key: CodingKeys
+    ) -> String? {
+        if let string = try? values.decodeIfPresent(String.self, forKey: key) {
+            return string
+        }
+        if let number = try? values.decodeIfPresent(Int.self, forKey: key) {
+            return number.map(String.init)
+        }
+        return nil
+    }
+
+    private static func decodeURL(
+        _ values: KeyedDecodingContainer<CodingKeys>,
+        key: CodingKeys
+    ) -> URL? {
+        guard let raw = try? values.decodeIfPresent(String.self, forKey: key),
+              let value = raw?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !value.isEmpty,
+              let url = URL(string: value),
+              ["http", "https"].contains(url.scheme?.lowercased() ?? "") else {
+            return nil
+        }
+        return url
+    }
+
+    var year: Int? {
+        if let defenseDate, let year = Self.yearFromDate(defenseDate) {
+            return year
+        }
+        if let pubDate {
+            return Self.yearFromDate(pubDate)
+        }
+        return nil
+    }
+
+    private static func yearFromDate(_ value: String) -> Int? {
+        let components = value.split(whereSeparator: { !$0.isNumber })
+        guard let candidate = components.last, candidate.count == 4 else { return nil }
+        return Int(candidate)
     }
 
     var authorsText: String {
@@ -63,9 +130,14 @@ struct Thesis: Identifiable, Decodable, Hashable {
         directors.isEmpty ? "Dirección no indicada" : directors.joined(separator: ", ")
     }
 
-    var hasPDF: Bool {
-        pdfURL != nil && (isPDFAvailable ?? true)
-    }
+    var abstract: String? { summary }
+    var subjects: [String] { subjectsUCM }
+    var pdfURL: URL? { pdf }
+    var landingURL: URL? { link }
+    var faculty: String? { nil }
+    var language: String? { nil }
+    var isPDFAvailable: Bool { pdf != nil }
+    var hasPDF: Bool { pdf != nil }
 }
 
 struct ReadingProgress: Codable, Equatable {
