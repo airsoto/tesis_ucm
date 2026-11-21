@@ -56,11 +56,10 @@ La aplicación conserva los campos originales. No asigna facultades ni idiomas c
 
 ### Carga y caché en iPhone
 
-1. La aplicación descarga el manifiesto desde GitHub.
-2. Descarga los 62 fragmentos con un máximo de cinco descargas simultáneas.
-3. Comprueba que el número de registros coincide con el total del manifiesto.
-4. Guarda los fragmentos en el almacenamiento local de la aplicación.
-5. En siguientes aperturas comprueba la versión del manifiesto y reutiliza la caché si no ha cambiado.
+1. El manifiesto, los 62 fragmentos de tesis y los 36 archivos del índice de resúmenes se incluyen en la app. El catálogo se puede consultar sin conexión desde la primera apertura.
+2. Al abrir la app o pulsar «Actualizar catálogo», se comprueba si GitHub ofrece una versión más reciente.
+3. La app descarga esa versión, comprueba el total y los identificadores, y activa la nueva copia cuando está completa. Si la descarga falla, conserva el catálogo disponible.
+4. La lectura sin conexión de un PDF requiere descargar el documento previamente.
 
 La búsqueda local actual consulta título, autores, directores, resumen y materias UCM/UNESCO. Los filtros disponibles se basan en el año de defensa y las clasificaciones UCM/UNESCO. Los 36 fragmentos del índice invertido se han importado y quedan disponibles para optimizar futuras búsquedas por términos.
 
@@ -89,11 +88,11 @@ open TesisUCM.xcodeproj
 1. Añade el repositorio \`airsoto/tesis_ucm\` a CodeMagic.
 2. Selecciona la configuración mediante \`codemagic.yaml\`.
 3. Ejecuta el workflow \`ios-simulator\`.
-4. El primer flujo comprueba la compilación sin firma para el simulador.
+4. El flujo compila para el simulador sin firma y verifica que el catálogo JSON completo está dentro del archivo de la app.
 5. Después configura la firma de distribución y el envío a TestFlight con la integración de App Store Connect.
 
 No se guardan claves privadas, certificados ni credenciales en este repositorio.
 
 ## Estado
 
-La base de datos JSON completa se ha importado y el código Swift se ha adaptado a su esquema original. La compilación en CodeMagic y las pruebas con dispositivos iPhone son los siguientes pasos. Antes de la publicación deben comprobarse los enlaces externos y los derechos de uso de los registros y documentos enlazados.
+El catálogo incluido corresponde a `tesis_ucm_v2.json`. La compilación en Codemagic permite verificar el empaquetado antes de probar la aplicación en iPhone.

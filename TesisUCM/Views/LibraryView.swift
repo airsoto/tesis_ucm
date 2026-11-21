@@ -23,33 +23,18 @@ struct LibraryView: View {
     }
 
     private var filteredTheses: [Thesis] {
-        library.theses.filter { thesis in
-            let searchableText = (
-                [thesis.title, thesis.summary ?? "", thesis.pubDate ?? "", thesis.defenseDate ?? ""] +
-                thesis.authors +
-                thesis.directors +
-                thesis.subjectsUCM +
-                thesis.subjectsUNESCO
-            )
-            .joined(separator: " ")
-            .folding(options: [.diacriticInsensitive, .caseInsensitive], locale: .current)
-
-            let normalizedQuery = searchText.folding(
-                options: [.diacriticInsensitive, .caseInsensitive],
-                locale: .current
-            )
-            let matchesSearch = searchText.isEmpty || searchableText.contains(normalizedQuery)
-            let matchesYear = selectedYear == "Todos" || String(thesis.year ?? 0) == selectedYear
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return library.theses.filter { thesis in
+            let matchesYear = selectedYear == "Todos" || thesis.year.map(String.init) == selectedYear
             let matchesUCM = selectedUCMSubject == "Todas" || thesis.subjectsUCM.contains(selectedUCMSubject)
             let matchesUNESCO = selectedUNESCOSubject == "Todas" || thesis.subjectsUNESCO.contains(selectedUNESCOSubject)
+            guard matchesYear, matchesUCM, matchesUNESCO else { return false }
+            guard !query.isEmpty else { return true }
 
-            return matchesSearch && matchesYear && matchesUCM && matchesUNESCO
-        }
-        .sorted {
-            if $0.year != $1.year {
-                return ($0.year ?? 0) > ($1.year ?? 0)
-            }
-            return $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending
+            let fields = [thesis.title, thesis.pubDate ?? "", thesis.defenseDate ?? ""] +
+                thesis.authors + thesis.directors + thesis.subjectsUCM + thesis.subjectsUNESCO
+            return fields.joined(separator: " ").localizedStandardContains(query) ||
+                thesis.summary?.localizedStandardContains(query) == true
         }
     }
 
@@ -60,34 +45,30 @@ struct LibraryView: View {
     }
 
     var body: some View {
+        let results = filteredTheses
         NavigationStack {
             ScrollView {
-                VStack(alignment: .leading, spacing: 20) {
+                LazyVStack(alignment: .leading, spacing: 20) {
                     introduction
                     filterBar
 
                     if library.isRefreshing {
-                        VStack(alignment: .leading, spacing: 8) {
-                            ProgressView(value: Double(library.downloadedChunkCount), total: Double(max(library.catalogManifest?.chunks ?? 62, 1)))
-                                .tint(AppTheme.burgundy)
-                            Text("Cargando base de datos: \(library.downloadedChunkCount)/\(library.catalogManifest?.chunks ?? 62) fragmentos")
-                                .font(.caption)
-                                .foregroundStyle(AppTheme.muted)
-                        }
+                        ProgressView(library.theses.isEmpty ? "Cargando catálogo…" : "Buscando actualizaciones…")
+                            .tint(AppTheme.burgundy)
                     }
 
-                    if filteredTheses.isEmpty {
+                    if results.isEmpty {
                         emptyState
                     } else {
-                        VStack(spacing: 12) {
+                        LazyVStack(spacing: 12) {
                             HStack {
-                                Text("\(filteredTheses.count.formatted()) tesis")
+                                Text("\(results.count.formatted()) tesis")
                                     .font(.subheadline.weight(.semibold))
                                     .foregroundStyle(AppTheme.muted)
                                 Spacer()
                             }
 
-                            ForEach(filteredTheses) { thesis in
+                            ForEach(results) { thesis in
                                 NavigationLink {
                                     ThesisDetailView(thesis: thesis)
                                 } label: {
@@ -219,24 +200,24 @@ struct LibraryView: View {
                 .foregroundStyle(AppTheme.burgundy)
                 .padding(.bottom, 4)
 
-            Text(library.theses.isEmpty ? "Preparando la biblioteca" : "No hay resultados")
+            Text(library.theses.isEmpty ? "Biblioteca" : "No hay resultados")
                 .font(.system(size: 20, weight: .regular, design: .serif))
                 .foregroundStyle(AppTheme.ink)
 
             Text(
                 library.theses.isEmpty
-                ? "La aplicación descargará el catálogo académico desde GitHub. Necesitas conexión a internet para la primera carga."
+                ? (library.lastError ?? "Cargando las tesis incluidas en la aplicación.")
                 : "Prueba con otras palabras o elimina alguno de los filtros."
             )
             .font(.subheadline)
             .foregroundStyle(AppTheme.muted)
             .multilineTextAlignment(.center)
 
-            if library.theses.isEmpty {
+            if library.theses.isEmpty, !library.isRefreshing {
                 Button {
                     Task { await library.refreshCatalog() }
                 } label: {
-                    Label("Cargar base de datos", systemImage: "arrow.down.circle")
+                    Label("Volver a cargar", systemImage: "arrow.clockwise")
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.white)
                         .padding(.horizontal, 18)

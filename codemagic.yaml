@@ -10,7 +10,7 @@ workflows:
     scripts:
       - name: Install XcodeGen
         script: |
-          brew install xcodegen
+          brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
 
       - name: Generate Xcode project
         script: |
@@ -26,6 +26,36 @@ workflows:
             -derivedDataPath build/DerivedData \
             CODE_SIGNING_ALLOWED=NO \
             build
+
+      - name: Verify JSON catalog in the iPhone app
+        script: |
+          set -eu
+          app="build/DerivedData/Build/Products/Debug-iphonesimulator/TesisUCM.app"
+          diff -qr TesisUCM/Resources "$app/Resources"
+          python3 - "$app/Resources" <<'PYTHON'
+          import json
+          from pathlib import Path
+          import sys
+
+          root = Path(sys.argv[1])
+          manifest = json.loads((root / "catalog.json").read_text(encoding="utf-8"))
+          ids = set()
+          for index in range(manifest["chunks"]):
+              path = root / "chunks" / f"chunk_{index:04}.json"
+              records = json.loads(path.read_text(encoding="utf-8"))
+              for record in records:
+                  record_id = str(record["_id"])
+                  if record_id in ids:
+                      sys.exit(f"Duplicate thesis ID: {record_id}")
+                  ids.add(record_id)
+
+          if len(ids) != manifest["total"]:
+              sys.exit(f"Expected {manifest['total']} theses, found {len(ids)}")
+          shards = list((root / "summary_index").glob("*.json"))
+          if len(shards) != manifest["summaryIndexShards"]:
+              sys.exit(f"Expected {manifest['summaryIndexShards']} index shards, found {len(shards)}")
+          print(f"Verified {len(ids)} theses and {len(shards)} index shards inside the app.")
+          PYTHON
 
     artifacts:
       - build/DerivedData/Build/Products/Debug-iphonesimulator/TesisUCM.app

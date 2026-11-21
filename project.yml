@@ -29,8 +29,9 @@ targets:
       - path: TesisUCM/Services
       - path: TesisUCM/Theme
       - path: TesisUCM/Views
-    resources:
-      - path: TesisUCM/Resources/catalog.json
+      - path: TesisUCM/Resources
+        type: folder
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: es.angelsoto.tesisucm

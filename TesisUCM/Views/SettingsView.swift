@@ -34,7 +34,7 @@ struct SettingsView: View {
 
                 Section("Catálogo") {
                     LabeledContent("Registros disponibles", value: "\(library.theses.count)")
-                    LabeledContent("Última actualización", value: library.lastCatalogUpdate ?? "Sin fecha")
+                    LabeledContent("Versión del catálogo", value: library.catalogManifest.map { String($0.version) } ?? "Sin cargar")
                     Button {
                         Task { await library.refreshCatalog() }
                     } label: {
