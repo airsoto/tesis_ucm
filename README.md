@@ -89,7 +89,8 @@ open TesisUCM.xcodeproj
 2. Selecciona la configuración mediante \`codemagic.yaml\`.
 3. Ejecuta el workflow \`ios-simulator\`.
 4. El flujo compila para el simulador sin firma y verifica que el catálogo JSON completo está dentro del archivo de la app.
-5. Después configura la firma de distribución y el envío a TestFlight con la integración de App Store Connect.
+5. Para generar y cargar el IPA firmado en App Store Connect, ejecuta manualmente `ios-testflight`. El flujo usa un perfil de distribución de tipo App Store para `es.angelsoto.tesisucm` y su certificado Apple Distribution en Code signing identities.
+6. El flujo de TestFlight verifica el catálogo en el IPA antes de subirlo. Una vez procesada por Apple, la compilación aparece en TestFlight. La asignación a grupos y las solicitudes de revisión se gestionan en App Store Connect.
 
 No se guardan claves privadas, certificados ni credenciales en este repositorio.
 

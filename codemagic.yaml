@@ -8,11 +8,13 @@ workflows:
       xcode: latest
 
     scripts:
-      - name: Install XcodeGen
+      - &install-xcodegen
+        name: Install XcodeGen
         script: |
           brew list xcodegen >/dev/null 2>&1 || brew install xcodegen
 
-      - name: Generate Xcode project
+      - &generate-project
+        name: Generate Xcode project
         script: |
           xcodegen generate
 
@@ -29,34 +31,59 @@ workflows:
 
       - name: Verify JSON catalog in the iPhone app
         script: |
-          set -eu
           app="build/DerivedData/Build/Products/Debug-iphonesimulator/TesisUCM.app"
-          diff -qr TesisUCM/Resources "$app/Resources"
-          python3 - "$app/Resources" <<'PYTHON'
-          import json
-          from pathlib import Path
-          import sys
-
-          root = Path(sys.argv[1])
-          manifest = json.loads((root / "catalog.json").read_text(encoding="utf-8"))
-          ids = set()
-          for index in range(manifest["chunks"]):
-              path = root / "chunks" / f"chunk_{index:04}.json"
-              records = json.loads(path.read_text(encoding="utf-8"))
-              for record in records:
-                  record_id = str(record["_id"])
-                  if record_id in ids:
-                      sys.exit(f"Duplicate thesis ID: {record_id}")
-                  ids.add(record_id)
-
-          if len(ids) != manifest["total"]:
-              sys.exit(f"Expected {manifest['total']} theses, found {len(ids)}")
-          shards = list((root / "summary_index").glob("*.json"))
-          if len(shards) != manifest["summaryIndexShards"]:
-              sys.exit(f"Expected {manifest['summaryIndexShards']} index shards, found {len(shards)}")
-          print(f"Verified {len(ids)} theses and {len(shards)} index shards inside the app.")
-          PYTHON
+          python3 scripts/verify_catalog.py "$app/Resources"
 
     artifacts:
       - build/DerivedData/Build/Products/Debug-iphonesimulator/TesisUCM.app
       - /tmp/xcodebuild_logs/*.log
+
+  ios-testflight:
+    name: Tesis UCM - TestFlight
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    integrations:
+      app_store_connect: Codemagic AJC Player
+
+    environment:
+      xcode: latest
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: es.angelsoto.tesisucm
+
+    scripts:
+      - *install-xcodegen
+      - *generate-project
+
+      - name: Set build number and apply signing profiles
+        script: |
+          set -eu
+          agvtool new-version -all "$PROJECT_BUILD_NUMBER"
+          xcode-project use-profiles
+
+      - name: Build signed IPA
+        script: |
+          set -eu
+          xcode-project build-ipa --project TesisUCM.xcodeproj --scheme TesisUCM
+
+      - name: Verify JSON catalog in signed IPA before upload
+        script: |
+          set -eu
+          set -- build/ios/ipa/*.ipa
+          test "$#" -eq 1
+          test -f "$1"
+          destination="$(mktemp -d)"
+          trap 'rm -rf "$destination"' EXIT
+          /usr/bin/ditto -x -k "$1" "$destination"
+          python3 scripts/verify_catalog.py "$destination/Payload/TesisUCM.app/Resources"
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      app_store_connect:
+        auth: integration
+        submit_to_testflight: false
+        submit_to_app_store: false
