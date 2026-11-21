@@ -144,6 +144,7 @@ struct ReadingProgress: Codable, Equatable {
     var page: Int
     var pageCount: Int
     var updatedAt: Date
+    var fragment: Int? = nil
 
     var percentage: Int {
         guard pageCount > 0 else { return 0 }

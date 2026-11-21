@@ -95,8 +95,15 @@ struct ThesisDetailView: View {
                 NavigationLink {
                     PDFReaderView(thesis: thesis)
                 } label: {
-                    Label("Leer tesis", systemImage: "book.pages")
-                        .font(.headline)
+                    let savedPage = library.progress[thesis.id]?.page
+                    VStack(spacing: 4) {
+                        Label(savedPage == nil ? "Leer tesis" : "Continuar lectura", systemImage: "book.pages")
+                            .font(.headline)
+                        if let savedPage {
+                            Text("Página \(savedPage)")
+                                .font(.caption)
+                        }
+                    }
                         .foregroundStyle(.white)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 15)

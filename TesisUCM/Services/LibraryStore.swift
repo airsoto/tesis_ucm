@@ -89,18 +89,20 @@ final class LibraryStore: ObservableObject {
         persistLocalState()
     }
 
-    func updateProgress(for thesisID: String, page: Int, pageCount: Int) {
+    func updateProgress(for thesisID: String, page: Int, pageCount: Int, fragment: Int? = nil) {
         guard pageCount > 0 else { return }
         let safePage = min(max(page, 1), pageCount)
-        if progress[thesisID]?.page == safePage,
-           progress[thesisID]?.pageCount == pageCount {
+        let previous = progress[thesisID]
+        let savedFragment = fragment ?? (previous?.page == safePage ? previous?.fragment : nil)
+        if previous?.page == safePage, previous?.pageCount == pageCount, previous?.fragment == savedFragment {
             return
         }
 
         progress[thesisID] = ReadingProgress(
             page: safePage,
             pageCount: pageCount,
-            updatedAt: Date()
+            updatedAt: Date(),
+            fragment: savedFragment
         )
         persistLocalState()
     }
