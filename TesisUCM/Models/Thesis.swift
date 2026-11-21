@@ -96,9 +96,9 @@ struct Thesis: Identifiable, Decodable, Hashable {
         _ values: KeyedDecodingContainer<CodingKeys>,
         key: CodingKeys
     ) -> URL? {
-        guard let raw = try? values.decode(String.self, forKey: key),
-              let value = Optional(raw.trimmingCharacters(in: .whitespacesAndNewlines)),
-              !value.isEmpty,
+        guard let raw = try? values.decode(String.self, forKey: key) else { return nil }
+        let value = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty,
               let url = URL(string: value),
               ["http", "https"].contains(url.scheme?.lowercased() ?? "") else {
             return nil
