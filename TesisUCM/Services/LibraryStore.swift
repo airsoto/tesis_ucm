@@ -128,8 +128,8 @@ final class LibraryStore: ObservableObject {
                     group.addTask {
                         let records = try await Self.loadChunk(
                             index: index,
-                            resourcesURL: self.remoteResourcesURL,
-                            cacheDirectory: self.catalogCacheDirectory,
+                            resourcesURL: resourcesURL,
+                            cacheDirectory: cacheDirectory,
                             reuseCache: reuseCache
                         )
                         return (index, records)
