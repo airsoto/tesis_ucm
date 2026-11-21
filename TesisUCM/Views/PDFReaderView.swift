@@ -24,6 +24,7 @@ struct PDFReaderView: View {
     @State private var loadError: String?
     @State private var loadAttempt = 0
     @State private var scrubPage: Double?
+    @State private var showAdaptiveControls = false
 
     private enum Sheet: String, Identifiable {
         case contents, search, text, appearance
@@ -70,14 +71,26 @@ struct PDFReaderView: View {
 
     private func reader(_ document: PDFDocument, source: PDFReadingText) -> some View {
         VStack(spacing: 0) {
-            Picker("Modo de lectura", selection: $mode) {
-                Text("Lectura adaptable").tag(ReaderMode.adaptive)
-                Text("PDF original").tag(ReaderMode.pdf)
+            if mode == .pdf || showAdaptiveControls {
+                HStack(spacing: 10) {
+                    Picker("Modo de lectura", selection: $mode) {
+                        Text("Lectura adaptable").tag(ReaderMode.adaptive)
+                        Text("PDF original").tag(ReaderMode.pdf)
+                    }
+                    .pickerStyle(.segmented)
+
+                    if mode == .adaptive {
+                        Button("Ocultar controles", systemImage: "xmark") {
+                            showAdaptiveControls = false
+                        }
+                        .labelStyle(.iconOnly)
+                        .accessibilityLabel("Ocultar controles de lectura")
+                    }
+                }
+                .padding(.horizontal, 16)
+                .padding(.vertical, 9)
+                Divider()
             }
-            .pickerStyle(.segmented)
-            .padding(.horizontal, 16)
-            .padding(.vertical, 9)
-            Divider()
 
             Group {
                 if mode == .pdf {
@@ -93,8 +106,27 @@ struct PDFReaderView: View {
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            Divider()
-            readerControls(count: document.pageCount)
+            if mode == .pdf || showAdaptiveControls {
+                Divider()
+                readerControls(count: document.pageCount)
+            }
+        }
+        .overlay(alignment: .bottomTrailing) {
+            if mode == .adaptive && !showAdaptiveControls {
+                Button {
+                    showAdaptiveControls = true
+                } label: {
+                    Image(systemName: "slider.horizontal.3")
+                        .font(.headline)
+                        .frame(width: 44, height: 44)
+                        .background(.ultraThinMaterial, in: Circle())
+                        .overlay(Circle().stroke(AppTheme.line, lineWidth: 1))
+                }
+                .foregroundStyle(AppTheme.burgundy)
+                .accessibilityLabel("Mostrar controles de lectura")
+                .padding(.trailing, 16)
+                .padding(.bottom, 16)
+            }
         }
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
@@ -128,6 +160,7 @@ struct PDFReaderView: View {
         }
         .onChange(of: mode) { _, mode in
             if mode == .pdf { speech.stop() }
+            if mode == .adaptive { showAdaptiveControls = false }
             library.updateProgress(for: thesis.id, page: currentPage, pageCount: document.pageCount, mode: mode.rawValue)
         }
         .toolbar(.hidden, for: .tabBar)
