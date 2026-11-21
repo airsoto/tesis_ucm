@@ -45,10 +45,11 @@ final class LibraryStore: ObservableObject {
             let manifest = try JSONDecoder().decode(ThesisManifest.self, from: manifestData)
 
             let sameVersion = catalogManifest?.version == manifest.version
-            let cacheIsComplete = cachedChunkCount(for: manifest) == manifest.chunks
+            let versionCacheDirectory = catalogCacheDirectory(for: manifest.version)
+            let cacheIsComplete = cachedChunkCount(for: manifest, in: versionCacheDirectory) == manifest.chunks
 
             if sameVersion && cacheIsComplete {
-                let cached = try loadCachedChunks(for: manifest)
+                let cached = try loadCachedChunks(for: manifest, in: versionCacheDirectory)
                 guard cached.count == manifest.total else {
                     throw CatalogError.incompleteDatabase(expected: manifest.total, actual: cached.count)
                 }
@@ -61,13 +62,14 @@ final class LibraryStore: ObservableObject {
             }
 
             try FileManager.default.createDirectory(
-                at: catalogCacheDirectory,
+                at: versionCacheDirectory,
                 withIntermediateDirectories: true
             )
 
             let loadedChunks = try await downloadChunks(
                 manifest: manifest,
-                reuseCache: sameVersion
+                reuseCache: sameVersion,
+                cacheDirectory: versionCacheDirectory
             )
             let records = loadedChunks.flatMap { $0 }
 
@@ -76,7 +78,7 @@ final class LibraryStore: ObservableObject {
             }
 
             try manifestData.write(
-                to: catalogCacheDirectory.appendingPathComponent("manifest.json"),
+                to: catalogCacheRoot.appendingPathComponent("manifest.json"),
                 options: .atomic
             )
 
@@ -94,7 +96,8 @@ final class LibraryStore: ObservableObject {
 
     private func downloadChunks(
         manifest: ThesisManifest,
-        reuseCache: Bool
+        reuseCache: Bool,
+        cacheDirectory: URL
     ) async throws -> [[Thesis]] {
         let count = manifest.chunks
         guard count > 0 else { return [] }
@@ -102,7 +105,6 @@ final class LibraryStore: ObservableObject {
         var orderedChunks = Array<[Thesis]?>(repeating: nil, count: count)
         let concurrency = min(5, count)
         let resourcesURL = remoteResourcesURL
-        let cacheDirectory = catalogCacheDirectory
         var nextIndex = concurrency
 
         try await withThrowingTaskGroup(of: (Int, [Thesis]).self) { group in
@@ -190,20 +192,20 @@ final class LibraryStore: ObservableObject {
         return data
     }
 
-    private func cachedChunkCount(for manifest: ThesisManifest) -> Int {
+    private func cachedChunkCount(for manifest: ThesisManifest, in directory: URL) -> Int {
         (0..<manifest.chunks).filter { index in
             let fileName = String(format: "chunk_%04d.json", index)
             return FileManager.default.fileExists(
-                atPath: catalogCacheDirectory.appendingPathComponent(fileName).path
+                atPath: directory.appendingPathComponent(fileName).path
             )
         }.count
     }
 
-    private func loadCachedChunks(for manifest: ThesisManifest) throws -> [Thesis] {
+    private func loadCachedChunks(for manifest: ThesisManifest, in directory: URL) throws -> [Thesis] {
         var records: [Thesis] = []
         for index in 0..<manifest.chunks {
             let fileName = String(format: "chunk_%04d.json", index)
-            let url = catalogCacheDirectory.appendingPathComponent(fileName)
+            let url = directory.appendingPathComponent(fileName)
             let data = try Data(contentsOf: url)
             records.append(contentsOf: try JSONDecoder().decode([Thesis].self, from: data))
         }
@@ -211,14 +213,14 @@ final class LibraryStore: ObservableObject {
     }
 
     private func loadCachedCatalog() {
-        let manifestURL = catalogCacheDirectory.appendingPathComponent("manifest.json")
+        let manifestURL = catalogCacheRoot.appendingPathComponent("manifest.json")
         guard let manifestData = try? Data(contentsOf: manifestURL),
               let manifest = try? JSONDecoder().decode(ThesisManifest.self, from: manifestData) else {
             return
         }
 
         do {
-            let cached = try loadCachedChunks(for: manifest)
+            let cached = try loadCachedChunks(for: manifest, in: catalogCacheDirectory(for: manifest.version))
             catalogManifest = manifest
             downloadedChunkCount = manifest.chunks
             lastCatalogUpdate = "Versión \(manifest.version)"
@@ -347,8 +349,12 @@ final class LibraryStore: ObservableObject {
             .appendingPathComponent("TesisUCM", isDirectory: true)
     }
 
-    private var catalogCacheDirectory: URL {
+    private var catalogCacheRoot: URL {
         applicationSupportDirectory.appendingPathComponent("Catalog", isDirectory: true)
+    }
+
+    private func catalogCacheDirectory(for version: Int) -> URL {
+        catalogCacheRoot.appendingPathComponent("v\(version)", isDirectory: true)
     }
 
     private var pdfDirectory: URL {
