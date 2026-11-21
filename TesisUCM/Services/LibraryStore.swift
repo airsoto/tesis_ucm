@@ -120,7 +120,6 @@ final class LibraryStore: ObservableObject {
 
             while let result = try await group.next() {
                 orderedChunks[result.0] = result.1
-                downloadedChunkCount += 1
 
                 if nextIndex < count {
                     let index = nextIndex
@@ -138,6 +137,7 @@ final class LibraryStore: ObservableObject {
             }
         }
 
+        downloadedChunkCount = count
         return orderedChunks.compactMap { $0 }
     }
 
