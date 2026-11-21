@@ -101,6 +101,8 @@ final class LibraryStore: ObservableObject {
 
         var orderedChunks = Array<[Thesis]?>(repeating: nil, count: count)
         let concurrency = min(5, count)
+        let resourcesURL = remoteResourcesURL
+        let cacheDirectory = catalogCacheDirectory
         var nextIndex = concurrency
 
         try await withThrowingTaskGroup(of: (Int, [Thesis]).self) { group in
@@ -108,8 +110,8 @@ final class LibraryStore: ObservableObject {
                 group.addTask {
                     let records = try await Self.loadChunk(
                         index: index,
-                        resourcesURL: self.remoteResourcesURL,
-                        cacheDirectory: self.catalogCacheDirectory,
+                        resourcesURL: resourcesURL,
+                        cacheDirectory: cacheDirectory,
                         reuseCache: reuseCache
                     )
                     return (index, records)
