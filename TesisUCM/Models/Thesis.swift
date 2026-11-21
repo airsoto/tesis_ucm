@@ -118,7 +118,7 @@ struct Thesis: Identifiable, Decodable, Hashable {
 
     private static func yearFromDate(_ value: String) -> Int? {
         let components = value.split(whereSeparator: { !$0.isNumber })
-        guard let candidate = components.last, candidate.count == 4 else { return nil }
+        guard let candidate = components.first(where: { $0.count == 4 }) else { return nil }
         return Int(candidate)
     }
 
