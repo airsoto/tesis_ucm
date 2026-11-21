@@ -26,8 +26,6 @@ struct ContentView: View {
     @EnvironmentObject private var library: LibraryStore
 
     private func refreshIfNeeded() async {
-        if library.theses.isEmpty {
-            await library.refreshCatalog()
-        }
+        await library.refreshCatalog()
     }
 }
