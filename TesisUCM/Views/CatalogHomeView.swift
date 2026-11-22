@@ -44,7 +44,7 @@ struct CatalogHomeView: View {
     }
 
     private var header: some View {
-        ZStack(alignment: .bottomLeading) {
+        ZStack(alignment: .topLeading) {
             GeometryReader { geometry in
                 Image("LibraryHeader")
                     .resizable()
@@ -53,16 +53,44 @@ struct CatalogHomeView: View {
                     .clipped()
                     .accessibilityHidden(true)
             }
-            LinearGradient(colors: [.clear, AppTheme.burgundyDark.opacity(0.91)], startPoint: .top, endPoint: .bottom)
-            VStack(alignment: .leading, spacing: 5) {
-                Text("Tesis UCM").font(.system(.largeTitle, design: .serif).bold())
-                    .accessibilityAddTraits(.isHeader)
-                Text("Universidad Complutense de Madrid").font(.subheadline.weight(.medium))
+            LinearGradient(
+                colors: [AppTheme.paper.opacity(0.58), .clear, AppTheme.burgundyDark.opacity(0.12)],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+            HStack(spacing: 12) {
+                Image("AppIcon")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 66, height: 66)
+                    .padding(5)
+                    .background(.white.opacity(0.88), in: Circle())
+                    .overlay(Circle().stroke(.white.opacity(0.95), lineWidth: 1.5))
+                    .shadow(color: .black.opacity(0.16), radius: 7, x: 0, y: 4)
+                    .accessibilityHidden(true)
+                VStack(alignment: .leading, spacing: 1) {
+                    Text("Tesis UCM")
+                        .font(.system(size: 31, weight: .bold, design: .serif))
+                        .foregroundStyle(AppTheme.burgundyDark)
+                        .accessibilityAddTraits(.isHeader)
+                    Text("Universidad Complutense\nde Madrid")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(AppTheme.ink)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                Spacer(minLength: 0)
             }
-            .foregroundStyle(.white)
-            .padding(22)
+            .padding(.horizontal, 20)
+            .padding(.top, 28)
+            VStack {
+                Spacer()
+                HeaderWave()
+                    .fill(AppTheme.burgundy)
+                    .frame(height: 34)
+                    .shadow(color: AppTheme.burgundyDark.opacity(0.18), radius: 4, x: 0, y: -2)
+            }
         }
-        .frame(minHeight: 180)
+        .frame(height: 232)
         .background(AppTheme.burgundyDark)
         .clipShape(.rect(bottomLeadingRadius: 27, bottomTrailingRadius: 27))
     }
@@ -105,9 +133,22 @@ struct CatalogHomeView: View {
             .padding(.horizontal, 6)
             .padding(.vertical, 12)
             .frame(maxWidth: .infinity, minHeight: 106)
-            .background(Color(rgb: fill), in: RoundedRectangle(cornerRadius: 18))
+            .background(
+                LinearGradient(
+                    colors: [Color(rgb: fill).opacity(0.96), Color(rgb: fill)],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                ),
+                in: RoundedRectangle(cornerRadius: 18)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 18)
+                    .strokeBorder(.white.opacity(0.82), lineWidth: 1)
+            }
+            .shadow(color: tone.color.opacity(0.18), radius: 1, x: 0, y: 3)
+            .shadow(color: .black.opacity(0.10), radius: 7, x: 0, y: 5)
         }
-        .buttonStyle(.plain)
+        .buttonStyle(HomeTileButtonStyle())
     }
 
     private enum Tone {
@@ -120,6 +161,32 @@ struct CatalogHomeView: View {
             case .green: Color(rgb: 0x35582A)
             case .violet: Color(rgb: 0x663D95)
             }
+        }
+    }
+}
+
+private struct HomeTileButtonStyle: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .scaleEffect(configuration.isPressed ? 0.97 : 1)
+            .offset(y: configuration.isPressed ? 2 : 0)
+            .brightness(configuration.isPressed ? -0.025 : 0)
+            .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
+    }
+}
+
+private struct HeaderWave: Shape {
+    func path(in rect: CGRect) -> Path {
+        Path { path in
+            path.move(to: CGPoint(x: 0, y: rect.height * 0.30))
+            path.addCurve(
+                to: CGPoint(x: rect.width, y: rect.height * 0.18),
+                control1: CGPoint(x: rect.width * 0.28, y: rect.height * 1.12),
+                control2: CGPoint(x: rect.width * 0.66, y: -rect.height * 0.38)
+            )
+            path.addLine(to: CGPoint(x: rect.width, y: rect.height))
+            path.addLine(to: CGPoint(x: 0, y: rect.height))
+            path.closeSubpath()
         }
     }
 }
