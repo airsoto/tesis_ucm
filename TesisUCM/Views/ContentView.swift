@@ -45,6 +45,7 @@ struct ContentView: View {
                 .tabItem { Label("Ajustes", systemImage: "gearshape") }
                 .tag(Tab.settings)
         }
+        .tint(AppTheme.burgundy)
         .task { await library.refreshCatalog() }
     }
 }
