@@ -128,6 +128,7 @@ struct PDFReaderView: View {
                 .padding(.bottom, 16)
             }
         }
+        .tint(AppTheme.burgundy)
         .toolbar {
             ToolbarItemGroup(placement: .topBarTrailing) {
                 Button {
@@ -179,6 +180,7 @@ struct PDFReaderView: View {
                 lineSpacing: lineSpacing,
                 margins: margins,
                 palette: palette,
+                bottomClearance: showAdaptiveControls ? 18 : 92,
                 onPositionChanged: { page, fragment in
                     library.updateProgress(for: thesis.id, page: page, pageCount: count, fragment: fragment, mode: ReaderMode.adaptive.rawValue)
                 }
@@ -212,6 +214,7 @@ struct PDFReaderView: View {
                         lineSpacing: lineSpacing,
                         margins: margins,
                         palette: palette,
+                        bottomClearance: showAdaptiveControls ? 18 : 92,
                         onPositionChanged: { fragment in
                             guard currentPage == page else { return }
                             library.updateProgress(for: thesis.id, page: page, pageCount: count, fragment: fragment)
@@ -426,6 +429,7 @@ private struct AdaptiveContinuousReader: View {
     let lineSpacing: Double
     let margins: Double
     let palette: ReaderPalette
+    let bottomClearance: CGFloat
     let onPositionChanged: (Int, Int) -> Void
 
     @State private var hasScrolledToInitialPage = false
@@ -462,7 +466,10 @@ private struct AdaptiveContinuousReader: View {
             // Keep the first and last lines inside the safe reading area,
             // clear of the navigation bar, Home indicator and floating controls.
             .contentMargins(.top, 24, for: .scrollContent)
-            .contentMargins(.bottom, 152, for: .scrollContent)
+            .contentMargins(.bottom, 28, for: .scrollContent)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                Color.clear.frame(height: bottomClearance).accessibilityHidden(true)
+            }
             .task {
                 guard !hasScrolledToInitialPage else { return }
                 hasScrolledToInitialPage = true
@@ -542,6 +549,7 @@ private struct AdaptiveReaderPage: View {
     let lineSpacing: Double
     let margins: Double
     let palette: ReaderPalette
+    let bottomClearance: CGFloat
     let onPositionChanged: (Int) -> Void
 
     @ScaledMetric(relativeTo: .body) private var baseSize = 20.0
@@ -549,7 +557,7 @@ private struct AdaptiveReaderPage: View {
 
     init(page: PDFReadingPage, initialFragment: Int?, chapter: String?, typeface: ReaderTypeface,
          size: Double, lineSpacing: Double, margins: Double, palette: ReaderPalette,
-         onPositionChanged: @escaping (Int) -> Void) {
+         bottomClearance: CGFloat, onPositionChanged: @escaping (Int) -> Void) {
         self.page = page
         self.chapter = chapter
         self.typeface = typeface
@@ -557,6 +565,7 @@ private struct AdaptiveReaderPage: View {
         self.lineSpacing = lineSpacing
         self.margins = margins
         self.palette = palette
+        self.bottomClearance = bottomClearance
         self.onPositionChanged = onPositionChanged
         _position = State(initialValue: initialFragment.flatMap { page.paragraphs.indices.contains($0) ? $0 : nil })
     }
@@ -585,7 +594,10 @@ private struct AdaptiveReaderPage: View {
         }
         // A permanent reading gutter prevents text being hidden at either edge.
         .contentMargins(.top, 24, for: .scrollContent)
-        .contentMargins(.bottom, 152, for: .scrollContent)
+        .contentMargins(.bottom, 28, for: .scrollContent)
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Color.clear.frame(height: bottomClearance).accessibilityHidden(true)
+        }
         .scrollPosition(id: $position, anchor: .top)
         .onChange(of: position) { _, position in
             if let position { onPositionChanged(position) }
