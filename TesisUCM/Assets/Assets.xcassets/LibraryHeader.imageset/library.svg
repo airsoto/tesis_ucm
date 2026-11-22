@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520">
+<defs>
+ <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#cfe5f8"/><stop offset="1" stop-color="#fff1d8"/></linearGradient>
+ <linearGradient id="wall" x2="0" y2="1"><stop stop-color="#f3dfc5"/><stop offset="1" stop-color="#c98b67"/></linearGradient>
+ <linearGradient id="burgundy" x2="0" y2="1"><stop stop-color="#8b1738"/><stop offset="1" stop-color="#5d102b"/></linearGradient>
+</defs>
+<rect width="1200" height="520" fill="url(#sky)"/>
+<circle cx="1000" cy="80" r="75" fill="#fff8e8" opacity=".55"/>
+<g fill="#47764b"><path d="M0 360L40 140l35 220 40-170 40 170 55-210 45 210v160H0z"/><path d="M930 370l40-245 42 245 45-190 48 190 40-230 55 230v150H930z"/></g>
+<g fill="#6b925b" opacity=".8"><circle cx="55" cy="170" r="48"/><circle cx="125" cy="205" r="44"/><circle cx="1030" cy="170" r="62"/><circle cx="1120" cy="215" r="48"/></g>
+<rect x="205" y="250" width="790" height="220" fill="url(#wall)" stroke="#9a644d" stroke-width="8"/>
+<rect x="260" y="220" width="680" height="55" fill="#d9b58e"/>
+<path d="M420 220L600 90l180 130z" fill="#e7d2b6" stroke="#9a644d" stroke-width="8"/>
+<path d="M465 210L600 112l135 98z" fill="#c58b6a"/>
+<rect x="555" y="145" width="90" height="70" fill="#e9d9c5"/>
+<g fill="#fff0d9" stroke="#9a644d" stroke-width="6">
+ <rect x="290" y="295" width="65" height="145"/><rect x="395" y="295" width="65" height="145"/><rect x="500" y="295" width="65" height="145"/><rect x="635" y="295" width="65" height="145"/><rect x="740" y="295" width="65" height="145"/><rect x="845" y="295" width="65" height="145"/>
+</g>
+<g fill="#7b4537"><rect x="310" y="315" width="25" height="125"/><rect x="415" y="315" width="25" height="125"/><rect x="520" y="315" width="25" height="125"/><rect x="655" y="315" width="25" height="125"/><rect x="760" y="315" width="25" height="125"/><rect x="865" y="315" width="25" height="125"/></g>
+<path d="M0 420Q250 350 470 420T900 420T1200 400V520H0z" fill="url(#burgundy)"/>
+<path d="M0 455Q260 400 500 455T950 450T1200 435V520H0z" fill="#fff8ed"/>
+<g fill="#6d8f55"><path d="M0 400l35-100 30 100zM70 405l40-125 35 125zM1040 405l42-120 38 120zM1120 405l35-100 35 100z"/></g>
+</svg>
