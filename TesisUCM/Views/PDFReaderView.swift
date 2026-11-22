@@ -462,7 +462,7 @@ private struct AdaptiveContinuousReader: View {
             // Keep the first and last lines inside the safe reading area,
             // clear of the navigation bar, Home indicator and floating controls.
             .contentMargins(.top, 24, for: .scrollContent)
-            .contentMargins(.bottom, 96, for: .scrollContent)
+            .contentMargins(.bottom, 152, for: .scrollContent)
             .task {
                 guard !hasScrolledToInitialPage else { return }
                 hasScrolledToInitialPage = true
@@ -585,7 +585,7 @@ private struct AdaptiveReaderPage: View {
         }
         // A permanent reading gutter prevents text being hidden at either edge.
         .contentMargins(.top, 24, for: .scrollContent)
-        .contentMargins(.bottom, 96, for: .scrollContent)
+        .contentMargins(.bottom, 152, for: .scrollContent)
         .scrollPosition(id: $position, anchor: .top)
         .onChange(of: position) { _, position in
             if let position { onPositionChanged(position) }
