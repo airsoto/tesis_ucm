@@ -37,7 +37,12 @@ struct CatalogHomeView: View {
                     tile("Mis favoritas", "star", 0xFFF1D3, .ochre, .favorites)
                 }
                 .padding(.horizontal, 16)
-                .padding(.bottom, 16)
+                .padding(.bottom, 12)
+                Image("HomeBooks")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity)
+                    .accessibilityHidden(true)
             }
         }
         .background(AppTheme.cream.ignoresSafeArea())
@@ -54,35 +59,42 @@ struct CatalogHomeView: View {
                     .accessibilityHidden(true)
             }
             LinearGradient(
-                colors: [AppTheme.paper.opacity(0.58), .clear, AppTheme.burgundyDark.opacity(0.12)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
+                colors: [Color(rgb: 0xDCEEFF).opacity(0.18), .clear, AppTheme.paper.opacity(0.12)],
+                startPoint: .top,
+                endPoint: .bottom
             )
-            HStack(alignment: .top, spacing: 10) {
-                VStack(alignment: .leading, spacing: 2) {
+            VStack {
+                Spacer()
+                HeaderWave()
+                    .fill(AppTheme.burgundy)
+                    .frame(height: 34)
+            }
+            .accessibilityHidden(true)
+
+            HStack(alignment: .center, spacing: 12) {
+                Image("FEUCM")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 72, height: 84)
+                    .shadow(color: .black.opacity(0.14), radius: 2, x: 0, y: 1)
+                    .accessibilityLabel("Escudo de la Universidad Complutense de Madrid")
+
+                VStack(alignment: .leading, spacing: 3) {
                     Text("Tesis UCM")
-                        .font(.system(size: 31, weight: .bold, design: .serif))
-                        .foregroundStyle(AppTheme.burgundyDark)
+                        .font(.system(size: 31, weight: .bold, design: .default))
+                        .foregroundStyle(Color(rgb: 0x981536))
                         .accessibilityAddTraits(.isHeader)
                     Text("Universidad Complutense\nde Madrid")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 14, weight: .medium, design: .default))
                         .foregroundStyle(AppTheme.ink)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer(minLength: 4)
-                Image(systemName: "building.columns.fill")
-                    .font(.system(size: 29, weight: .medium))
-                    .foregroundStyle(AppTheme.burgundy)
-                    .frame(width: 66, height: 66)
-                    .background(.white.opacity(0.92), in: Circle())
-                    .overlay(Circle().stroke(.white.opacity(0.95), lineWidth: 1.5))
-                    .shadow(color: .black.opacity(0.16), radius: 7, x: 0, y: 4)
-                    .accessibilityHidden(true)
+                Spacer(minLength: 0)
             }
-            .padding(.horizontal, 20)
-            .padding(.top, 25)
+            .padding(.horizontal, 18)
+            .padding(.top, 22)
         }
-        .frame(height: 202)
+        .frame(height: 218)
         .background(AppTheme.burgundyDark)
         .clipShape(.rect(bottomLeadingRadius: 27, bottomTrailingRadius: 27))
     }
