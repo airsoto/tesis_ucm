@@ -1,23 +1,61 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 520">
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 620">
 <defs>
- <linearGradient id="sky" x2="0" y2="1"><stop stop-color="#cfe5f8"/><stop offset="1" stop-color="#fff1d8"/></linearGradient>
- <linearGradient id="wall" x2="0" y2="1"><stop stop-color="#f3dfc5"/><stop offset="1" stop-color="#c98b67"/></linearGradient>
- <linearGradient id="burgundy" x2="0" y2="1"><stop stop-color="#8b1738"/><stop offset="1" stop-color="#5d102b"/></linearGradient>
+ <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#9bc8ef"/><stop offset=".58" stop-color="#d9e9f4"/><stop offset="1" stop-color="#f8e7c9"/></linearGradient>
+ <linearGradient id="sun" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#fff7dc" stop-opacity=".9"/><stop offset="1" stop-color="#fff7dc" stop-opacity="0"/></linearGradient>
+ <linearGradient id="stone" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#f4d9b5"/><stop offset="1" stop-color="#bd8060"/></linearGradient>
+ <linearGradient id="roof" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#a75e49"/><stop offset="1" stop-color="#663b36"/></linearGradient>
+ <linearGradient id="lawn" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#829b5c"/><stop offset="1" stop-color="#405e3c"/></linearGradient>
+ <linearGradient id="glass" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#d6e8ec"/><stop offset="1" stop-color="#668a9a"/></linearGradient>
 </defs>
-<rect width="1200" height="520" fill="url(#sky)"/>
-<circle cx="1000" cy="80" r="75" fill="#fff8e8" opacity=".55"/>
-<g fill="#47764b"><path d="M0 360L40 140l35 220 40-170 40 170 55-210 45 210v160H0z"/><path d="M930 370l40-245 42 245 45-190 48 190 40-230 55 230v150H930z"/></g>
-<g fill="#6b925b" opacity=".8"><circle cx="55" cy="170" r="48"/><circle cx="125" cy="205" r="44"/><circle cx="1030" cy="170" r="62"/><circle cx="1120" cy="215" r="48"/></g>
-<rect x="205" y="250" width="790" height="220" fill="url(#wall)" stroke="#9a644d" stroke-width="8"/>
-<rect x="260" y="220" width="680" height="55" fill="#d9b58e"/>
-<path d="M420 220L600 90l180 130z" fill="#e7d2b6" stroke="#9a644d" stroke-width="8"/>
-<path d="M465 210L600 112l135 98z" fill="#c58b6a"/>
-<rect x="555" y="145" width="90" height="70" fill="#e9d9c5"/>
-<g fill="#fff0d9" stroke="#9a644d" stroke-width="6">
- <rect x="290" y="295" width="65" height="145"/><rect x="395" y="295" width="65" height="145"/><rect x="500" y="295" width="65" height="145"/><rect x="635" y="295" width="65" height="145"/><rect x="740" y="295" width="65" height="145"/><rect x="845" y="295" width="65" height="145"/>
+<rect width="1200" height="620" fill="url(#sky)"/>
+<circle cx="980" cy="95" r="150" fill="url(#sun)"/>
+<g opacity=".35" fill="#fff"><ellipse cx="210" cy="110" rx="150" ry="28"/><ellipse cx="270" cy="92" rx="92" ry="22"/><ellipse cx="900" cy="160" rx="135" ry="24"/></g>
+<!-- distant tree line -->
+<g fill="#648a58" opacity=".9">
+ <path d="M0 420L18 300 45 360 72 245 102 355 130 275 166 420z"/>
+ <path d="M1030 420l28-145 26 72 35-165 30 150 30-95 42 183z"/>
+ <path d="M1120 420l26-120 25 70 29-150v200z"/>
 </g>
-<g fill="#7b4537"><rect x="310" y="315" width="25" height="125"/><rect x="415" y="315" width="25" height="125"/><rect x="520" y="315" width="25" height="125"/><rect x="655" y="315" width="25" height="125"/><rect x="760" y="315" width="25" height="125"/><rect x="865" y="315" width="25" height="125"/></g>
-<path d="M0 420Q250 350 470 420T900 420T1200 400V520H0z" fill="url(#burgundy)"/>
-<path d="M0 455Q260 400 500 455T950 450T1200 435V520H0z" fill="#fff8ed"/>
-<g fill="#6d8f55"><path d="M0 400l35-100 30 100zM70 405l40-125 35 125zM1040 405l42-120 38 120zM1120 405l35-100 35 100z"/></g>
+<!-- campus building shadow -->
+<ellipse cx="600" cy="492" rx="500" ry="48" fill="#59483b" opacity=".22"/>
+<!-- main building -->
+<rect x="178" y="300" width="844" height="205" fill="url(#stone)" stroke="#98634f" stroke-width="8"/>
+<rect x="148" y="280" width="904" height="32" fill="#e8c9a4" stroke="#98634f" stroke-width="6"/>
+<rect x="208" y="328" width="784" height="18" fill="#a96e55" opacity=".45"/>
+<!-- roof and pediment -->
+<path d="M330 280L600 104 870 280z" fill="url(#roof)" stroke="#76473d" stroke-width="9"/>
+<path d="M385 268L600 132 815 268z" fill="#e8c9a4" stroke="#9b6c56" stroke-width="7"/>
+<path d="M470 245L600 160 730 245z" fill="#c58b69"/>
+<circle cx="600" cy="225" r="25" fill="#f1ddbd" stroke="#95614d" stroke-width="6"/>
+<path d="M570 250h60v22h-60z" fill="#e7c9a5"/>
+<!-- roof balustrade -->
+<rect x="365" y="267" width="470" height="15" fill="#e8d0b1"/>
+<g fill="#f2dfc5" stroke="#98634f" stroke-width="3">
+ <path d="M390 250h14v18h-14zM425 250h14v18h-14zM460 250h14v18h-14zM495 250h14v18h-14zM530 250h14v18h-14zM565 250h14v18h-14zM600 250h14v18h-14zM635 250h14v18h-14zM670 250h14v18h-14zM705 250h14v18h-14zM740 250h14v18h-14zM775 250h14v18h-14zM810 250h14v18h-14z"/>
+ </g>
+<!-- windows -->
+<g fill="url(#glass)" stroke="#8c5d4b" stroke-width="7">
+ <rect x="230" y="365" width="62" height="104"/><rect x="330" y="365" width="62" height="104"/><rect x="430" y="365" width="62" height="104"/>
+ <rect x="708" y="365" width="62" height="104"/><rect x="808" y="365" width="62" height="104"/><rect x="908" y="365" width="62" height="104"/>
+</g>
+<g stroke="#8c5d4b" stroke-width="5"><path d="M261 365v104M230 415h62M361 365v104M330 415h62M461 365v104M430 415h62M739 365v104M708 415h62M839 365v104M808 415h62M939 365v104M908 415h62"/></g>
+<!-- central portico -->
+<rect x="520" y="300" width="160" height="205" fill="#d7b08b"/>
+<rect x="510" y="292" width="180" height="22" fill="#f0d8b9"/>
+<g fill="#f5e5cb" stroke="#9b6c56" stroke-width="5">
+ <path d="M526 325h24v180h-24zM570 325h24v180h-24zM614 325h24v180h-24zM658 325h16v180h-16z"/>
+</g>
+<rect x="582" y="400" width="38" height="105" fill="#67443a"/>
+<path d="M575 400h52l-26-26z" fill="#f4dfc1" stroke="#98634f" stroke-width="4"/>
+<!-- steps -->
+<path d="M490 505h220l30 20H460zM465 525h270l25 18H440zM430 543h340v18H430z" fill="#e4c7a5" stroke="#a47a5e" stroke-width="3"/>
+<!-- foreground lawn -->
+<path d="M0 505Q190 470 370 520T770 512T1200 500V620H0z" fill="url(#lawn)"/>
+<!-- trees with layered foliage -->
+<g>
+ <path d="M95 530L115 260h25l20 270zM1050 530l25-290h28l24 290z" fill="#684b36"/>
+ <g fill="#4e794a"><circle cx="115" cy="250" r="82"/><circle cx="62" cy="305" r="60"/><circle cx="170" cy="315" r="70"/><circle cx="1080" cy="230" r="88"/><circle cx="1018" cy="300" r="62"/><circle cx="1135" cy="300" r="72"/></g>
+ <g fill="#83a467" opacity=".9"><circle cx="80" cy="220" r="34"/><circle cx="150" cy="260" r="35"/><circle cx="1045" cy="205" r="42"/><circle cx="1110" cy="250" r="38"/></g>
+</g>
+<g fill="#d6c78a" opacity=".7"><circle cx="250" cy="565" r="5"/><circle cx="310" cy="580" r="4"/><circle cx="900" cy="570" r="5"/><circle cx="970" cy="555" r="4"/></g>
 </svg>
