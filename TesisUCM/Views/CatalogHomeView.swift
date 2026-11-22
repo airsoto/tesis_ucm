@@ -59,12 +59,11 @@ struct CatalogHomeView: View {
                 endPoint: .bottomTrailing
             )
             HStack(spacing: 12) {
-                Image("AppIcon")
-                    .resizable()
-                    .scaledToFit()
+                Image(systemName: "building.columns.fill")
+                    .font(.system(size: 29, weight: .medium))
+                    .foregroundStyle(AppTheme.burgundy)
                     .frame(width: 66, height: 66)
-                    .padding(5)
-                    .background(.white.opacity(0.88), in: Circle())
+                    .background(.white.opacity(0.92), in: Circle())
                     .overlay(Circle().stroke(.white.opacity(0.95), lineWidth: 1.5))
                     .shadow(color: .black.opacity(0.16), radius: 7, x: 0, y: 4)
                     .accessibilityHidden(true)
