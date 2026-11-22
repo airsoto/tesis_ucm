@@ -58,16 +58,8 @@ struct CatalogHomeView: View {
                 startPoint: .topLeading,
                 endPoint: .bottomTrailing
             )
-            HStack(spacing: 12) {
-                Image(systemName: "building.columns.fill")
-                    .font(.system(size: 29, weight: .medium))
-                    .foregroundStyle(AppTheme.burgundy)
-                    .frame(width: 66, height: 66)
-                    .background(.white.opacity(0.92), in: Circle())
-                    .overlay(Circle().stroke(.white.opacity(0.95), lineWidth: 1.5))
-                    .shadow(color: .black.opacity(0.16), radius: 7, x: 0, y: 4)
-                    .accessibilityHidden(true)
-                VStack(alignment: .leading, spacing: 1) {
+            HStack(alignment: .top, spacing: 10) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text("Tesis UCM")
                         .font(.system(size: 31, weight: .bold, design: .serif))
                         .foregroundStyle(AppTheme.burgundyDark)
@@ -77,19 +69,18 @@ struct CatalogHomeView: View {
                         .foregroundStyle(AppTheme.ink)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                Spacer(minLength: 0)
+                Spacer(minLength: 4)
+                Image("FEUCM")
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: 58, height: 66)
+                    .shadow(color: .black.opacity(0.20), radius: 5, x: 0, y: 3)
+                    .accessibilityLabel("Emblema de la Universidad Complutense de Madrid")
             }
             .padding(.horizontal, 20)
-            .padding(.top, 28)
-            VStack {
-                Spacer()
-                HeaderWave()
-                    .fill(AppTheme.burgundy)
-                    .frame(height: 34)
-                    .shadow(color: AppTheme.burgundyDark.opacity(0.18), radius: 4, x: 0, y: -2)
-            }
+            .padding(.top, 25)
         }
-        .frame(height: 232)
+        .frame(height: 202)
         .background(AppTheme.burgundyDark)
         .clipShape(.rect(bottomLeadingRadius: 27, bottomTrailingRadius: 27))
     }
@@ -144,8 +135,14 @@ struct CatalogHomeView: View {
                 RoundedRectangle(cornerRadius: 18)
                     .strokeBorder(.white.opacity(0.82), lineWidth: 1)
             }
-            .shadow(color: tone.color.opacity(0.18), radius: 1, x: 0, y: 3)
-            .shadow(color: .black.opacity(0.10), radius: 7, x: 0, y: 5)
+            .shadow(color: tone.color.opacity(0.22), radius: 1, x: 0, y: 3)
+            .shadow(color: .black.opacity(0.14), radius: 8, x: 0, y: 6)
+            .overlay(alignment: .top) {
+                RoundedRectangle(cornerRadius: 18)
+                    .stroke(.white.opacity(0.42), lineWidth: 1)
+                    .padding(1)
+                    .allowsHitTesting(false)
+            }
         }
         .buttonStyle(HomeTileButtonStyle())
     }

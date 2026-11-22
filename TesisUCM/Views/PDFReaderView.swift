@@ -40,6 +40,11 @@ struct PDFReaderView: View {
         }
     }
 
+    private var adaptiveBottomClearance: CGFloat {
+        if showAdaptiveControls { return 36 }
+        return adaptiveLayout == .paginated ? 168 : 112
+    }
+
     var body: some View {
         Group {
             if let document, let source {
@@ -180,7 +185,7 @@ struct PDFReaderView: View {
                 lineSpacing: lineSpacing,
                 margins: margins,
                 palette: palette,
-                bottomClearance: showAdaptiveControls ? 18 : 92,
+                bottomClearance: adaptiveBottomClearance,
                 onPositionChanged: { page, fragment in
                     library.updateProgress(for: thesis.id, page: page, pageCount: count, fragment: fragment, mode: ReaderMode.adaptive.rawValue)
                 }
@@ -214,7 +219,7 @@ struct PDFReaderView: View {
                         lineSpacing: lineSpacing,
                         margins: margins,
                         palette: palette,
-                        bottomClearance: showAdaptiveControls ? 18 : 92,
+                        bottomClearance: adaptiveBottomClearance,
                         onPositionChanged: { fragment in
                             guard currentPage == page else { return }
                             library.updateProgress(for: thesis.id, page: page, pageCount: count, fragment: fragment)
@@ -461,15 +466,12 @@ private struct AdaptiveContinuousReader: View {
                         )
                         .id(pageNumber)
                     }
+                    .padding(.bottom, bottomClearance)
                 }
             }
-            // Keep the first and last lines inside the safe reading area,
-            // clear of the navigation bar, Home indicator and floating controls.
+            // Extra scrollable content keeps the final line clear of the Home indicator.
             .contentMargins(.top, 24, for: .scrollContent)
-            .contentMargins(.bottom, 28, for: .scrollContent)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                Color.clear.frame(height: bottomClearance).accessibilityHidden(true)
-            }
+            .contentMargins(.bottom, 12, for: .scrollContent)
             .task {
                 guard !hasScrolledToInitialPage else { return }
                 hasScrolledToInitialPage = true
@@ -589,15 +591,14 @@ private struct AdaptiveReaderPage: View {
             .scrollTargetLayout()
             .frame(maxWidth: 680)
             .padding(.horizontal, margins)
-            .padding(.vertical, 22)
+            .padding(.top, 22)
+            // In paginated mode this padding is part of the scrollable content,
+            // so the last paragraph can move completely above the bottom controls.
+            .padding(.bottom, 22 + bottomClearance)
             .frame(maxWidth: .infinity)
         }
-        // A permanent reading gutter prevents text being hidden at either edge.
         .contentMargins(.top, 24, for: .scrollContent)
-        .contentMargins(.bottom, 28, for: .scrollContent)
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            Color.clear.frame(height: bottomClearance).accessibilityHidden(true)
-        }
+        .contentMargins(.bottom, 12, for: .scrollContent)
         .scrollPosition(id: $position, anchor: .top)
         .onChange(of: position) { _, position in
             if let position { onPositionChanged(position) }
