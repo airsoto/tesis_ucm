@@ -63,6 +63,7 @@ class MainActivity : ComponentActivity() {
             var year by remember { mutableStateOf("") }
             var selected by remember { mutableStateOf<Thesis?>(null) }
             var showHome by remember { mutableStateOf(true) }
+            var reading by remember { mutableStateOf(false) }
             val context = LocalContext.current
             LaunchedEffect(Unit) {
                 try { catalog = withContext(Dispatchers.IO) { loadCatalog(this@MainActivity) } }
@@ -70,7 +71,9 @@ class MainActivity : ComponentActivity() {
                 finally { loading = false }
             }
             MaterialTheme(colorScheme = lightColorScheme(primary = burgundy, background = cream, surface = cream)) {
-                if (showHome) {
+                if (reading && selected != null) {
+                    ThesisReaderScreen(selected!!.pdf, selected!!.title, onClose = { reading = false })
+                } else if (showHome) {
                     ThesisHomeScreen(catalog.size, onSearch = { query = it; showHome = false }, onShortcut = { action ->
                         query = when(action) { "recent" -> ""; else -> query }
                         showHome = false
@@ -117,8 +120,8 @@ class MainActivity : ComponentActivity() {
                         Row {
                             Button(onClick = {
                                 val url = t.pdf.takeIf { it.startsWith("https://") || it.startsWith("http://") }
-                                if (url != null) context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                            }, enabled = t.pdf.startsWith("http")) { Text("Abrir PDF") }
+                                if (url != null) reading = true
+                            }, enabled = t.pdf.startsWith("http")) { Text("Leer tesis") }
                             Spacer(Modifier.width(8.dp))
                             OutlinedButton(onClick = {
                                 val url = t.link.takeIf { it.startsWith("http") }
