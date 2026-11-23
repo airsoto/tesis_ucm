@@ -1,5 +1,4 @@
 import SwiftUI
-import UIKit
 
 struct CatalogHomeView: View {
     enum Shortcut {
@@ -52,7 +51,7 @@ struct CatalogHomeView: View {
     private var header: some View {
         ZStack(alignment: .topLeading) {
             GeometryReader { geometry in
-                Image(UIImage(named: "UCMHeaderPhoto") == nil ? "LibraryHeader" : "UCMHeaderPhoto")
+                Image("UCMHeaderPhoto")
                     .resizable()
                     .scaledToFill()
                     .frame(width: geometry.size.width, height: geometry.size.height)

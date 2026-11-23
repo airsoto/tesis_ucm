@@ -41,8 +41,8 @@ struct PDFReaderView: View {
     }
 
     private var adaptiveBottomClearance: CGFloat {
-        if showAdaptiveControls { return adaptiveLayout == .paginated ? 144 : 88 }
-        return adaptiveLayout == .paginated ? 132 : 112
+        if showAdaptiveControls { return adaptiveLayout == .paginated ? 240 : 112 }
+        return adaptiveLayout == .paginated ? 220 : 132
     }
 
     var body: some View {
@@ -691,19 +691,19 @@ private struct AdaptiveReaderPage: View {
             .scrollTargetLayout()
             .frame(maxWidth: 680)
             .padding(.horizontal, margins)
-            .padding(.top, 32)
+            .padding(.top, 40)
             // In paginated mode this padding is part of the scrollable content,
             // so the last paragraph can move completely above the bottom controls.
-            .padding(.bottom, 64 + bottomClearance)
+            .padding(.bottom, 112 + bottomClearance)
             .frame(maxWidth: .infinity)
         }
         // Reserve real viewport space above the Home indicator and floating
         // reader controls. The final paragraph can now scroll fully into view.
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Color.clear.frame(height: 32)
+            Color.clear.frame(height: 56)
         }
         .contentMargins(.top, 24, for: .scrollContent)
-        .contentMargins(.bottom, 48, for: .scrollContent)
+        .contentMargins(.bottom, 72, for: .scrollContent)
         .scrollPosition(id: $position, anchor: .top)
         .onChange(of: position) { _, position in
             if let position { onPositionChanged(position) }
