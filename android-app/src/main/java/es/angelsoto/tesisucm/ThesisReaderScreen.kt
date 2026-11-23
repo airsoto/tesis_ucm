@@ -55,7 +55,7 @@ fun ThesisReaderScreen(pdfUrl: String, title: String, onClose: () -> Unit) {
                     connection.readTimeout = 60000
                     connection.instanceFollowRedirects = true
                     try {
-                        if (connection.responseCode !in 200..299) error("HTTP ${connection.responseCode}")
+                        if (connection.responseCode !in 200..299) throw IllegalStateException("HTTP ${connection.responseCode}")
                         connection.inputStream.use { input -> dest.outputStream().use { input.copyTo(it) } }
                     } finally { connection.disconnect() }
                 }
