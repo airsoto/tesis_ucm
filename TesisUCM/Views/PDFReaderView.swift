@@ -41,8 +41,8 @@ struct PDFReaderView: View {
     }
 
     private var adaptiveBottomClearance: CGFloat {
-        if showAdaptiveControls { return adaptiveLayout == .paginated ? 110 : 52 }
-        return adaptiveLayout == .paginated ? 120 : 112
+        if showAdaptiveControls { return adaptiveLayout == .paginated ? 144 : 88 }
+        return adaptiveLayout == .paginated ? 132 : 112
     }
 
     var body: some View {
@@ -74,7 +74,13 @@ struct PDFReaderView: View {
         .onDisappear {
             speech.stop()
             if let document {
-                library.updateProgress(for: thesis.id, page: currentPage, pageCount: document.pageCount, mode: mode.rawValue)
+                library.updateProgress(
+                    for: thesis.id,
+                    page: currentPage,
+                    pageCount: document.pageCount,
+                    mode: mode.rawValue,
+                    adaptiveLayout: adaptiveLayout.rawValue
+                )
             }
         }
     }
@@ -174,7 +180,22 @@ struct PDFReaderView: View {
             if mode == .adaptive { showAdaptiveControls = false }
             // Keep the same document page when changing between PDF and reflowed text.
             if mode == .pdf { destination = PDFReaderDestination(page: currentPage, query: nil) }
-            library.updateProgress(for: thesis.id, page: currentPage, pageCount: document.pageCount, mode: mode.rawValue)
+            library.updateProgress(
+                for: thesis.id,
+                page: currentPage,
+                pageCount: document.pageCount,
+                mode: mode.rawValue,
+                adaptiveLayout: adaptiveLayout.rawValue
+            )
+        }
+        .onChange(of: adaptiveLayout) { _, layout in
+            library.updateProgress(
+                for: thesis.id,
+                page: currentPage,
+                pageCount: document.pageCount,
+                mode: mode.rawValue,
+                adaptiveLayout: layout.rawValue
+            )
         }
         .toolbar(.hidden, for: .tabBar)
     }
@@ -186,6 +207,7 @@ struct PDFReaderView: View {
                 source: source,
                 count: count,
                 currentPage: $currentPage,
+                initialFragment: library.progress[thesis.id]?.fragment,
                 chapters: contents,
                 typeface: typeface,
                 size: textSize,
@@ -194,7 +216,14 @@ struct PDFReaderView: View {
                 palette: palette,
                 bottomClearance: adaptiveBottomClearance,
                 onPositionChanged: { page, fragment in
-                    library.updateProgress(for: thesis.id, page: page, pageCount: count, fragment: fragment, mode: ReaderMode.adaptive.rawValue)
+                    library.updateProgress(
+                        for: thesis.id,
+                        page: page,
+                        pageCount: count,
+                        fragment: fragment,
+                        mode: ReaderMode.adaptive.rawValue,
+                        adaptiveLayout: AdaptiveReadingLayout.continuous.rawValue
+                    )
                 }
             )
         } else {
@@ -229,7 +258,14 @@ struct PDFReaderView: View {
                         bottomClearance: adaptiveBottomClearance,
                         onPositionChanged: { fragment in
                             guard currentPage == page else { return }
-                            library.updateProgress(for: thesis.id, page: page, pageCount: count, fragment: fragment)
+                            library.updateProgress(
+                                for: thesis.id,
+                                page: page,
+                                pageCount: count,
+                                fragment: fragment,
+                                mode: ReaderMode.adaptive.rawValue,
+                                adaptiveLayout: AdaptiveReadingLayout.paginated.rawValue
+                            )
                         }
                     )
                     .id(page)
@@ -379,7 +415,13 @@ struct PDFReaderView: View {
     private func updatePage(_ page: Int, count: Int) {
         if page != currentPage { speech.stop() }
         currentPage = page
-        library.updateProgress(for: thesis.id, page: page, pageCount: count, mode: mode.rawValue)
+        library.updateProgress(
+            for: thesis.id,
+            page: page,
+            pageCount: count,
+            mode: mode.rawValue,
+            adaptiveLayout: adaptiveLayout.rawValue
+        )
     }
 
     @MainActor
@@ -400,6 +442,9 @@ struct PDFReaderView: View {
             let savedPage = progress?.page ?? 1
             // Restore the last reading mode as well as the page.
             mode = progress?.mode == ReaderMode.pdf.rawValue ? .pdf : .adaptive
+            if let savedLayout = progress?.adaptiveLayout.flatMap(AdaptiveReadingLayout.init(rawValue:)) {
+                adaptiveLayout = savedLayout
+            }
             currentPage = min(max(savedPage, 1), pdf.pageCount)
             contents = ReaderChapter.table(in: pdf)
             source = PDFReadingText(url: fileURL)
@@ -431,10 +476,16 @@ private struct ReaderControlStyle: ButtonStyle {
 
 /// Reflows the extracted text across the available width.  Unlike the original PDF,
 /// this mode follows the reader's selected font, spacing and page margins.
+private struct ReaderTextPosition: Hashable {
+    let page: Int
+    let fragment: Int
+}
+
 private struct AdaptiveContinuousReader: View {
     let source: PDFReadingText
     let count: Int
     @Binding var currentPage: Int
+    let initialFragment: Int?
     let chapters: [ReaderChapter]
     let typeface: ReaderTypeface
     let size: Double
@@ -446,6 +497,7 @@ private struct AdaptiveContinuousReader: View {
 
     @State private var hasScrolledToInitialPage = false
     @State private var scrollDrivenPage: Int?
+    @State private var lastReportedPosition: ReaderTextPosition?
 
     var body: some View {
         ScrollViewReader { proxy in
@@ -460,9 +512,7 @@ private struct AdaptiveContinuousReader: View {
                             size: size,
                             lineSpacing: lineSpacing,
                             margins: margins,
-                            palette: palette,
-                            onPageVisible: { _ in },
-                            onFragmentVisible: { _, _ in }
+                            palette: palette
                         )
                         .id(pageNumber)
                     }
@@ -482,6 +532,17 @@ private struct AdaptiveContinuousReader: View {
                 currentPage = page
                 onPositionChanged(page, 0)
             }
+            .onPreferenceChange(ReaderFragmentTopPreference.self) { positions in
+                guard hasScrolledToInitialPage, !positions.isEmpty else { return }
+                let above = positions.filter { $0.value <= 96 }
+                let active = above.max(by: { $0.value < $1.value })
+                    ?? positions.min(by: { $0.value < $1.value })
+                guard let position = active?.key, position != lastReportedPosition else { return }
+                lastReportedPosition = position
+                scrollDrivenPage = position.page
+                currentPage = position.page
+                onPositionChanged(position.page, position.fragment)
+            }
             // Extra scrollable content keeps the final line clear of the Home indicator.
             .contentMargins(.top, 24, for: .scrollContent)
             .contentMargins(.bottom, 12, for: .scrollContent)
@@ -491,7 +552,15 @@ private struct AdaptiveContinuousReader: View {
                 try? await Task.sleep(for: .milliseconds(180))
                 guard !Task.isCancelled else { return }
                 proxy.scrollTo(currentPage, anchor: .top)
-                try? await Task.sleep(for: .milliseconds(180))
+                try? await Task.sleep(for: .milliseconds(350))
+                guard !Task.isCancelled else { return }
+                if let initialFragment, initialFragment > 0 {
+                    proxy.scrollTo(
+                        ReaderTextPosition(page: currentPage, fragment: initialFragment),
+                        anchor: .top
+                    )
+                    try? await Task.sleep(for: .milliseconds(180))
+                }
                 guard !Task.isCancelled else { return }
                 hasScrolledToInitialPage = true
             }
@@ -520,8 +589,6 @@ private struct AdaptiveContinuousPage: View {
     let lineSpacing: Double
     let margins: Double
     let palette: ReaderPalette
-    let onPageVisible: (Int) -> Void
-    let onFragmentVisible: (Int, Int) -> Void
 
     @ScaledMetric(relativeTo: .body) private var baseSize = 20.0
     @State private var textPage: PDFReadingPage?
@@ -541,7 +608,18 @@ private struct AdaptiveContinuousPage: View {
                             .lineSpacing(lineSpacing)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            // Paragraph onAppear is prefetch-driven; do not corrupt saved position.
+                            .id(ReaderTextPosition(page: pageNumber, fragment: index))
+                            .background {
+                                GeometryReader { geometry in
+                                    Color.clear.preference(
+                                        key: ReaderFragmentTopPreference.self,
+                                        value: [
+                                            ReaderTextPosition(page: pageNumber, fragment: index):
+                                                geometry.frame(in: .named("thesisReaderViewport")).minY
+                                        ]
+                                    )
+                                }
+                            }
                     }
                 }
                 .padding(.horizontal, margins)
@@ -613,16 +691,16 @@ private struct AdaptiveReaderPage: View {
             .scrollTargetLayout()
             .frame(maxWidth: 680)
             .padding(.horizontal, margins)
-            .padding(.top, 22)
+            .padding(.top, 32)
             // In paginated mode this padding is part of the scrollable content,
             // so the last paragraph can move completely above the bottom controls.
-            .padding(.bottom, 160 + bottomClearance)
+            .padding(.bottom, 64 + bottomClearance)
             .frame(maxWidth: .infinity)
         }
         // Reserve real viewport space above the Home indicator and floating
         // reader controls. The final paragraph can now scroll fully into view.
         .safeAreaInset(edge: .bottom, spacing: 0) {
-            Color.clear.frame(height: 88)
+            Color.clear.frame(height: 32)
         }
         .contentMargins(.top, 24, for: .scrollContent)
         .contentMargins(.bottom, 48, for: .scrollContent)
@@ -638,6 +716,14 @@ private struct ReaderPageTopPreference: PreferenceKey {
     static var defaultValue: [Int: CGFloat] = [:]
 
     static func reduce(value: inout [Int: CGFloat], nextValue: () -> [Int: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+
+private struct ReaderFragmentTopPreference: PreferenceKey {
+    static var defaultValue: [ReaderTextPosition: CGFloat] = [:]
+
+    static func reduce(value: inout [ReaderTextPosition: CGFloat], nextValue: () -> [ReaderTextPosition: CGFloat]) {
         value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }

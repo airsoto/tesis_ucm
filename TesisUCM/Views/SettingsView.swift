@@ -69,6 +69,14 @@ struct SettingsView: View {
                     Text("Privacidad y almacenamiento")
                 }
 
+                Section("Derechos y copyright") {
+                    Text("Los derechos de autor de las tesis doctorales y demás contenidos académicos corresponden a sus respectivos titulares.")
+                    Text("Tesis UCM es una aplicación desarrollada por Ángel Soto para facilitar el acceso y la lectura de las tesis doctorales de la Universidad Complutense de Madrid.")
+                    Text("Cualquier cesión del código o de los derechos de la aplicación a la Universidad Complutense de Madrid estará sujeta al correspondiente acuerdo formal entre las partes.")
+                }
+                .font(.footnote)
+                .foregroundStyle(AppTheme.muted)
+
                 if let error = library.lastError {
                     Section("Estado") {
                         Text(error)

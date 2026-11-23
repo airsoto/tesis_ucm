@@ -151,6 +151,7 @@ struct ReadingProgress: Codable, Equatable {
     var updatedAt: Date
     var fragment: Int? = nil
     var mode: String? = nil
+    var adaptiveLayout: String? = nil
 
     var percentage: Int {
         guard pageCount > 0 else { return 0 }
