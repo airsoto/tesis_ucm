@@ -67,7 +67,11 @@ struct CatalogHomeView: View {
                 Spacer()
                 HeaderWave()
                     .fill(AppTheme.burgundy)
-                    .frame(height: 34)
+                    .frame(height: 38)
+                HeaderWave()
+                    .fill(AppTheme.cream)
+                    .frame(height: 27)
+                    .padding(.top, -6)
             }
             .accessibilityHidden(true)
 
@@ -92,9 +96,9 @@ struct CatalogHomeView: View {
                 Spacer(minLength: 0)
             }
             .padding(.horizontal, 18)
-            .padding(.top, 22)
+            .padding(.top, 16)
         }
-        .frame(height: 218)
+        .frame(height: 236)
         .background(AppTheme.burgundyDark)
         .clipShape(.rect(bottomLeadingRadius: 27, bottomTrailingRadius: 27))
     }
