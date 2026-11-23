@@ -62,6 +62,7 @@ class MainActivity : ComponentActivity() {
             var query by remember { mutableStateOf("") }
             var year by remember { mutableStateOf("") }
             var selected by remember { mutableStateOf<Thesis?>(null) }
+            var showHome by remember { mutableStateOf(true) }
             val context = LocalContext.current
             LaunchedEffect(Unit) {
                 try { catalog = withContext(Dispatchers.IO) { loadCatalog(this@MainActivity) } }
@@ -69,7 +70,13 @@ class MainActivity : ComponentActivity() {
                 finally { loading = false }
             }
             MaterialTheme(colorScheme = lightColorScheme(primary = burgundy, background = cream, surface = cream)) {
-                Column(Modifier.fillMaxSize().background(cream).padding(16.dp)) {
+                if (showHome) {
+                    ThesisHomeScreen(catalog.size, onSearch = { query = it; showHome = false }, onShortcut = { action ->
+                        query = when(action) { "recent" -> ""; else -> query }
+                        showHome = false
+                    })
+                } else Column(Modifier.fillMaxSize().background(cream).padding(16.dp)) {
+                    TextButton(onClick = { selected = null; showHome = true }) { Text("← Inicio") }
                     Text("TESIS UCM", style = MaterialTheme.typography.headlineMedium, color = burgundy, fontWeight = FontWeight.Bold)
                     Text("Biblioteca de tesis de la Universidad Complutense", color = burgundy)
                     Spacer(Modifier.height(12.dp))
