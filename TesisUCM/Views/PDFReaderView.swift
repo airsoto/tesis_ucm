@@ -461,31 +461,39 @@ private struct AdaptiveContinuousReader: View {
                             lineSpacing: lineSpacing,
                             margins: margins,
                             palette: palette,
-                            onPageVisible: { page in
-                                guard page != currentPage else { return }
-                                scrollDrivenPage = page
-                                currentPage = page
-                                onPositionChanged(page, 0)
-                            },
-                            onFragmentVisible: { page, fragment in
-                                onPositionChanged(page, fragment)
-                            }
+                            onPageVisible: { _ in },
+                            onFragmentVisible: { _, _ in }
                         )
                         .id(pageNumber)
                     }
                     .padding(.bottom, bottomClearance)
                 }
             }
+            .coordinateSpace(name: "thesisReaderViewport")
+            // Only the page nearest the top of the visible viewport is current.
+            // LazyVStack.onAppear is unreliable: prefetched pages can overwrite progress.
+            .onPreferenceChange(ReaderPageTopPreference.self) { positions in
+                guard hasScrolledToInitialPage, !positions.isEmpty else { return }
+                let above = positions.filter { $0.value <= 80 }
+                let active = above.max(by: { $0.value < $1.value })
+                    ?? positions.min(by: { $0.value < $1.value })
+                guard let page = active?.key, page != currentPage else { return }
+                scrollDrivenPage = page
+                currentPage = page
+                onPositionChanged(page, 0)
+            }
             // Extra scrollable content keeps the final line clear of the Home indicator.
             .contentMargins(.top, 24, for: .scrollContent)
             .contentMargins(.bottom, 12, for: .scrollContent)
             .task {
                 guard !hasScrolledToInitialPage else { return }
-                hasScrolledToInitialPage = true
                 // The first scroll must wait until the lazy stack has mounted.
                 try? await Task.sleep(for: .milliseconds(180))
                 guard !Task.isCancelled else { return }
                 proxy.scrollTo(currentPage, anchor: .top)
+                try? await Task.sleep(for: .milliseconds(180))
+                guard !Task.isCancelled else { return }
+                hasScrolledToInitialPage = true
             }
             .onChange(of: currentPage) { _, page in
                 guard hasScrolledToInitialPage else { return }
@@ -533,14 +541,21 @@ private struct AdaptiveContinuousPage: View {
                             .lineSpacing(lineSpacing)
                             .textSelection(.enabled)
                             .frame(maxWidth: .infinity, alignment: .leading)
-                            .onAppear { onFragmentVisible(pageNumber, index) }
+                            // Paragraph onAppear is prefetch-driven; do not corrupt saved position.
                     }
                 }
                 .padding(.horizontal, margins)
                 .padding(.vertical, 22)
                 .frame(maxWidth: 680)
                 .frame(maxWidth: .infinity, alignment: .center)
-                .onAppear { onPageVisible(pageNumber) }
+                .background {
+                    GeometryReader { geometry in
+                        Color.clear.preference(
+                            key: ReaderPageTopPreference.self,
+                            value: [pageNumber: geometry.frame(in: .named("thesisReaderViewport")).minY]
+                        )
+                    }
+                }
             } else {
                 ProgressView()
                     .frame(maxWidth: .infinity, minHeight: 130)
@@ -616,5 +631,13 @@ private struct AdaptiveReaderPage: View {
             if let position { onPositionChanged(position) }
         }
         .foregroundStyle(palette.foreground)
+    }
+}
+
+private struct ReaderPageTopPreference: PreferenceKey {
+    static var defaultValue: [Int: CGFloat] = [:]
+
+    static func reduce(value: inout [Int: CGFloat], nextValue: () -> [Int: CGFloat]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
     }
 }
