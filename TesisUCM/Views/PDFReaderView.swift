@@ -601,12 +601,16 @@ private struct AdaptiveReaderPage: View {
             .padding(.top, 22)
             // In paginated mode this padding is part of the scrollable content,
             // so the last paragraph can move completely above the bottom controls.
-            .padding(.bottom, 72 + bottomClearance)
+            .padding(.bottom, 160 + bottomClearance)
             .frame(maxWidth: .infinity)
         }
+        // Reserve real viewport space above the Home indicator and floating
+        // reader controls. The final paragraph can now scroll fully into view.
+        .safeAreaInset(edge: .bottom, spacing: 0) {
+            Color.clear.frame(height: 88)
+        }
         .contentMargins(.top, 24, for: .scrollContent)
-        .contentMargins(.bottom, 40, for: .scrollContent)
-        .safeAreaPadding(.bottom, 24)
+        .contentMargins(.bottom, 48, for: .scrollContent)
         .scrollPosition(id: $position, anchor: .top)
         .onChange(of: position) { _, position in
             if let position { onPositionChanged(position) }
