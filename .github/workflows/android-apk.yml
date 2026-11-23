@@ -28,6 +28,9 @@ jobs:
         run: |
           mkdir -p android-app/src/main/assets/chunks
           cp TesisUCM/Resources/catalog.json android-app/src/main/assets/catalog.json
+          cp TesisUCM/Assets/Assets.xcassets/LibraryHeader.imageset/library.svg android-app/src/main/assets/library.svg
+          cp TesisUCM/Assets/Assets.xcassets/FEUCM.imageset/FEUCM.jpg android-app/src/main/assets/FEUCM.jpg
+          cp TesisUCM/Assets/Assets.xcassets/HomeBooks.imageset/HomeBooks.jpg android-app/src/main/assets/HomeBooks.jpg
           cp TesisUCM/Resources/chunks/*.json android-app/src/main/assets/chunks/
           test "$(find android-app/src/main/assets/chunks -name '*.json' | wc -l)" -gt 0
           echo "Catalog chunks: $(find android-app/src/main/assets/chunks -name '*.json' | wc -l)"
