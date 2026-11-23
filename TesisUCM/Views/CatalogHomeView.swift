@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct CatalogHomeView: View {
     enum Shortcut {
