@@ -1,0 +1,42 @@
+name: Android APK
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'android-app/**'
+      - 'build.gradle.kts'
+      - 'settings.gradle.kts'
+      - '.github/workflows/android-apk.yml'
+      - 'TesisUCM/Resources/**'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+      - name: Copy complete catalog into Android assets
+        run: |
+          mkdir -p android-app/src/main/assets/chunks
+          cp TesisUCM/Resources/catalog.json android-app/src/main/assets/catalog.json
+          cp TesisUCM/Resources/chunks/*.json android-app/src/main/assets/chunks/
+          test "$(find android-app/src/main/assets/chunks -name '*.json' | wc -l)" -eq 62
+      - name: Build installable debug APK
+        run: gradle :android-app:assembleDebug --no-daemon
+      - name: Publish APK as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: TesisUCM-Android-APK
+          path: android-app/build/outputs/apk/debug/android-app-debug.apk
+      - name: Publish APK to GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view android-apk >/dev/null 2>&1 || gh release create android-apk --title "Tesis UCM para Android" --notes "APK de prueba para instalación directa"
+          gh release upload android-apk android-app/build/outputs/apk/debug/android-app-debug.apk --clobber
