@@ -1,5 +1,6 @@
 import PDFKit
 import SwiftUI
+import UIKit
 
 struct PDFReaderView: View {
     let thesis: Thesis
@@ -25,6 +26,7 @@ struct PDFReaderView: View {
     @State private var loadAttempt = 0
     @State private var scrubPage: Double?
     @State private var showAdaptiveControls = false
+    @State private var paginatedTurn = PaginatedTurnCommand()
 
     private enum Sheet: String, Identifiable {
         case contents, search, text, appearance
@@ -41,8 +43,8 @@ struct PDFReaderView: View {
     }
 
     private var adaptiveBottomClearance: CGFloat {
-        if showAdaptiveControls { return adaptiveLayout == .paginated ? 240 : 112 }
-        return adaptiveLayout == .paginated ? 220 : 132
+        if showAdaptiveControls { return adaptiveLayout == .paginated ? 64 : 112 }
+        return adaptiveLayout == .paginated ? 104 : 132
     }
 
     var body: some View {
@@ -256,6 +258,9 @@ struct PDFReaderView: View {
                         margins: margins,
                         palette: palette,
                         bottomClearance: adaptiveBottomClearance,
+                        turnCommand: paginatedTurn,
+                        onPreviousPage: { navigate(to: page - 1, count: count, fragment: Int.max) },
+                        onNextPage: { navigate(to: page + 1, count: count, fragment: 0) },
                         onPositionChanged: { fragment in
                             guard currentPage == page else { return }
                             library.updateProgress(
@@ -269,22 +274,6 @@ struct PDFReaderView: View {
                         }
                     )
                     .id(page)
-                    .overlay {
-                        GeometryReader { proxy in
-                            Color.clear
-                                .contentShape(Rectangle())
-                                .simultaneousGesture(
-                                    SpatialTapGesture().onEnded { touch in
-                                        if touch.location.x >= proxy.size.width / 2 {
-                                            navigate(to: page + 1, count: count)
-                                        } else {
-                                            navigate(to: page - 1, count: count)
-                                        }
-                                    }
-                                )
-                            .accessibilityHidden(true)
-                        }
-                    }
                 }
             } else {
                 ProgressView("Preparando la página…")
@@ -305,10 +294,14 @@ struct PDFReaderView: View {
         return VStack(spacing: 6) {
             HStack(spacing: 8) {
                 Button("Página anterior", systemImage: "chevron.left") {
-                    navigate(to: currentPage - 1, count: count)
+                    if mode == .adaptive && adaptiveLayout == .paginated {
+                        paginatedTurn = PaginatedTurnCommand(id: paginatedTurn.id + 1, direction: -1)
+                    } else {
+                        navigate(to: currentPage - 1, count: count)
+                    }
                 }
                 .labelStyle(.iconOnly)
-                .disabled(currentPage <= 1)
+                .disabled(mode == .adaptive && adaptiveLayout == .paginated ? false : currentPage <= 1)
 
                 if count > 1 {
                     Slider(value: Binding(
@@ -331,10 +324,14 @@ struct PDFReaderView: View {
                 .accessibilityLabel("Ir a una página. Página \(currentPage) de \(count).")
 
                 Button("Página siguiente", systemImage: "chevron.right") {
-                    navigate(to: currentPage + 1, count: count)
+                    if mode == .adaptive && adaptiveLayout == .paginated {
+                        paginatedTurn = PaginatedTurnCommand(id: paginatedTurn.id + 1, direction: 1)
+                    } else {
+                        navigate(to: currentPage + 1, count: count)
+                    }
                 }
                 .labelStyle(.iconOnly)
-                .disabled(currentPage >= count)
+                .disabled(mode == .adaptive && adaptiveLayout == .paginated ? false : currentPage >= count)
             }
             .buttonStyle(ReaderControlStyle())
 
@@ -406,9 +403,19 @@ struct PDFReaderView: View {
         }
     }
 
-    private func navigate(to page: Int, count: Int, query: String? = nil) {
+    private func navigate(to page: Int, count: Int, query: String? = nil, fragment: Int? = nil) {
         guard (1...count).contains(page) else { return }
         updatePage(page, count: count)
+        if let fragment {
+            library.updateProgress(
+                for: thesis.id,
+                page: page,
+                pageCount: count,
+                fragment: fragment,
+                mode: mode.rawValue,
+                adaptiveLayout: adaptiveLayout.rawValue
+            )
+        }
         destination = PDFReaderDestination(page: page, query: query)
     }
 
@@ -461,6 +468,11 @@ struct PDFReaderView: View {
 
 private enum ReaderMode: String {
     case pdf, adaptive
+}
+
+private struct PaginatedTurnCommand: Equatable {
+    var id = 0
+    var direction = 0
 }
 
 private struct ReaderControlStyle: ButtonStyle {
@@ -652,14 +664,20 @@ private struct AdaptiveReaderPage: View {
     let margins: Double
     let palette: ReaderPalette
     let bottomClearance: CGFloat
+    let turnCommand: PaginatedTurnCommand
+    let onPreviousPage: () -> Void
+    let onNextPage: () -> Void
     let onPositionChanged: (Int) -> Void
 
     @ScaledMetric(relativeTo: .body) private var baseSize = 20.0
-    @State private var position: Int?
+    @State private var fragments: [NSAttributedString] = []
+    @State private var fragmentIndex: Int
 
     init(page: PDFReadingPage, initialFragment: Int?, chapter: String?, typeface: ReaderTypeface,
          size: Double, lineSpacing: Double, margins: Double, palette: ReaderPalette,
-         bottomClearance: CGFloat, onPositionChanged: @escaping (Int) -> Void) {
+         bottomClearance: CGFloat, turnCommand: PaginatedTurnCommand,
+         onPreviousPage: @escaping () -> Void,
+         onNextPage: @escaping () -> Void, onPositionChanged: @escaping (Int) -> Void) {
         self.page = page
         self.chapter = chapter
         self.typeface = typeface
@@ -668,47 +686,208 @@ private struct AdaptiveReaderPage: View {
         self.margins = margins
         self.palette = palette
         self.bottomClearance = bottomClearance
+        self.turnCommand = turnCommand
+        self.onPreviousPage = onPreviousPage
+        self.onNextPage = onNextPage
         self.onPositionChanged = onPositionChanged
-        _position = State(initialValue: initialFragment.flatMap { page.paragraphs.indices.contains($0) ? $0 : nil })
+        _fragmentIndex = State(initialValue: max(0, initialFragment ?? 0))
     }
 
     var body: some View {
-        ScrollView {
-            LazyVStack(alignment: .leading, spacing: 16) {
-                if let chapter {
-                    Text(chapter)
-                        .font(typeface.font(size: baseSize * size / 20 + 10).bold())
-                        .accessibilityAddTraits(.isHeader)
-                }
-                ForEach(page.paragraphs.indices, id: \.self) { index in
-                    Text(page.paragraphs[index])
-                        .font(typeface.font(size: baseSize * size / 20))
-                        .lineSpacing(lineSpacing)
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+        GeometryReader { geometry in
+            let horizontalInset = CGFloat(margins)
+            let topInset: CGFloat = 36
+            let bottomInset = max(bottomClearance, 72)
+            let textSize = CGSize(
+                width: max(1, geometry.size.width - horizontalInset * 2),
+                height: max(1, geometry.size.height - topInset - bottomInset - 12)
+            )
+            let key = PaginationKey(
+                width: Int(textSize.width.rounded()),
+                height: Int(textSize.height.rounded()),
+                fontSize: Int((CGFloat(baseSize) * CGFloat(size) / 20 * 10).rounded()),
+                lineSpacing: Int((lineSpacing * 10).rounded()),
+                typeface: typeface.rawValue,
+                palette: palette.rawValue
+            )
+
+            ZStack {
+                palette.background
+
+                if fragments.isEmpty {
+                    ProgressView("Preparando página…")
+                } else {
+                    PaginatedTextView(
+                        text: fragments[min(fragmentIndex, fragments.count - 1)],
+                        foreground: UIColor(palette.foreground),
+                        background: UIColor(palette.background)
+                    )
+                    .padding(.horizontal, horizontalInset)
+                    .padding(.top, topInset)
+                    .padding(.bottom, bottomInset)
+                    .accessibilityLabel("Fragmento \(fragmentIndex + 1) de \(fragments.count), página \(page.number)")
                 }
             }
-            .scrollTargetLayout()
-            .frame(maxWidth: 680)
-            .padding(.horizontal, margins)
-            .padding(.top, 40)
-            // In paginated mode this padding is part of the scrollable content,
-            // so the last paragraph can move completely above the bottom controls.
-            .padding(.bottom, 112 + bottomClearance)
-            .frame(maxWidth: .infinity)
-        }
-        // Reserve real viewport space above the Home indicator and floating
-        // reader controls. The final paragraph can now scroll fully into view.
-        .safeAreaInset(edge: .bottom, spacing: 0) {
-            Color.clear.frame(height: 56)
-        }
-        .contentMargins(.top, 24, for: .scrollContent)
-        .contentMargins(.bottom, 72, for: .scrollContent)
-        .scrollPosition(id: $position, anchor: .top)
-        .onChange(of: position) { _, position in
-            if let position { onPositionChanged(position) }
+            .contentShape(Rectangle())
+            .simultaneousGesture(
+                SpatialTapGesture().onEnded { touch in
+                    if touch.location.x >= geometry.size.width / 2 {
+                        advance()
+                    } else {
+                        goBack()
+                    }
+                }
+            )
+            .task(id: key) {
+                let attributedText = makeAttributedText()
+                fragments = TextPaginator.pages(from: attributedText, fitting: textSize)
+                fragmentIndex = min(fragmentIndex, max(0, fragments.count - 1))
+                onPositionChanged(fragmentIndex)
+            }
+            .onChange(of: turnCommand.id) { _, _ in
+                if turnCommand.direction > 0 {
+                    advance()
+                } else if turnCommand.direction < 0 {
+                    goBack()
+                }
+            }
         }
         .foregroundStyle(palette.foreground)
+        .background(palette.background)
+    }
+
+    private func advance() {
+        guard !fragments.isEmpty else { return }
+        if fragmentIndex < fragments.count - 1 {
+            fragmentIndex += 1
+            onPositionChanged(fragmentIndex)
+        } else {
+            onNextPage()
+        }
+    }
+
+    private func goBack() {
+        if fragmentIndex > 0 {
+            fragmentIndex -= 1
+            onPositionChanged(fragmentIndex)
+        } else {
+            onPreviousPage()
+        }
+    }
+
+    private func makeAttributedText() -> NSAttributedString {
+        let bodySize = CGFloat(baseSize) * CGFloat(size) / 20
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineSpacing = CGFloat(lineSpacing)
+        paragraphStyle.paragraphSpacing = 12
+
+        let bodyAttributes: [NSAttributedString.Key: Any] = [
+            .font: typeface.uiFont(size: bodySize),
+            .foregroundColor: UIColor(palette.foreground),
+            .paragraphStyle: paragraphStyle
+        ]
+        let result = NSMutableAttributedString(string: "")
+        if let chapter {
+            let headingStyle = paragraphStyle.mutableCopy() as! NSMutableParagraphStyle
+            headingStyle.paragraphSpacing = 18
+            result.append(NSAttributedString(
+                string: chapter + "\n",
+                attributes: [
+                    .font: typeface.uiFont(size: bodySize + 10).withTraits(.traitBold),
+                    .foregroundColor: UIColor(palette.foreground),
+                    .paragraphStyle: headingStyle
+                ]
+            ))
+        }
+        result.append(NSAttributedString(
+            string: page.paragraphs.joined(separator: "\n\n"),
+            attributes: bodyAttributes
+        ))
+        return result
+    }
+}
+
+private struct PaginationKey: Equatable {
+    let width: Int
+    let height: Int
+    let fontSize: Int
+    let lineSpacing: Int
+    let typeface: String
+    let palette: String
+}
+
+private enum TextPaginator {
+    static func pages(from text: NSAttributedString, fitting size: CGSize) -> [NSAttributedString] {
+        guard text.length > 0, size.width > 0, size.height > 0 else { return [] }
+        var pages: [NSAttributedString] = []
+        var location = 0
+
+        while location < text.length {
+            let remaining = text.attributedSubstring(from: NSRange(location: location, length: text.length - location))
+            let storage = NSTextStorage(attributedString: remaining)
+            let layout = NSLayoutManager()
+            let container = NSTextContainer(size: size)
+            container.lineFragmentPadding = 0
+            container.maximumNumberOfLines = 0
+            container.lineBreakMode = .byWordWrapping
+            storage.addLayoutManager(layout)
+            layout.addTextContainer(container)
+            layout.ensureLayout(for: container)
+
+            let glyphRange = layout.glyphRange(for: container)
+            var characterRange = layout.characterRange(forGlyphRange: glyphRange, actualGlyphRange: nil)
+            if characterRange.length == 0 {
+                characterRange = NSRange(location: 0, length: min(1, remaining.length))
+            }
+            pages.append(remaining.attributedSubstring(from: characterRange))
+            location += characterRange.length
+        }
+        return pages
+    }
+}
+
+private struct PaginatedTextView: UIViewRepresentable {
+    let text: NSAttributedString
+    let foreground: UIColor
+    let background: UIColor
+
+    func makeUIView(context: Context) -> UITextView {
+        let view = UITextView()
+        view.isEditable = false
+        view.isSelectable = true
+        view.isScrollEnabled = false
+        view.backgroundColor = background
+        view.textContainerInset = .zero
+        view.textContainer.lineFragmentPadding = 0
+        view.adjustsFontForContentSizeCategory = true
+        return view
+    }
+
+    func updateUIView(_ view: UITextView, context: Context) {
+        view.attributedText = text
+        view.textColor = foreground
+        view.backgroundColor = background
+    }
+}
+
+private extension ReaderTypeface {
+    func uiFont(size: CGFloat) -> UIFont {
+        switch self {
+        case .georgia:
+            return UIFont(name: "Georgia", size: size) ?? .systemFont(ofSize: size)
+        case .newYork:
+            let descriptor = UIFont.systemFont(ofSize: size).fontDescriptor.withDesign(.serif)
+            return descriptor.map { UIFont(descriptor: $0, size: size) } ?? .systemFont(ofSize: size)
+        case .sanFrancisco:
+            return .systemFont(ofSize: size)
+        }
+    }
+}
+
+private extension UIFont {
+    func withTraits(_ traits: UIFontDescriptor.SymbolicTraits) -> UIFont {
+        guard let descriptor = fontDescriptor.withSymbolicTraits(traits) else { return self }
+        return UIFont(descriptor: descriptor, size: pointSize)
     }
 }
 

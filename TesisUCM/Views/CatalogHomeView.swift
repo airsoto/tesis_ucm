@@ -63,18 +63,6 @@ struct CatalogHomeView: View {
                 startPoint: .top,
                 endPoint: .bottom
             )
-            VStack {
-                Spacer()
-                HeaderWave()
-                    .fill(AppTheme.burgundy)
-                    .frame(height: 38)
-                HeaderWave()
-                    .fill(AppTheme.cream)
-                    .frame(height: 27)
-                    .padding(.top, -6)
-            }
-            .accessibilityHidden(true)
-
             HStack(alignment: .center, spacing: 12) {
                 Image("FEUCM")
                     .resizable()
@@ -186,22 +174,6 @@ private struct HomeTileButtonStyle: ButtonStyle {
             .offset(y: configuration.isPressed ? 2 : 0)
             .brightness(configuration.isPressed ? -0.025 : 0)
             .animation(.easeOut(duration: 0.16), value: configuration.isPressed)
-    }
-}
-
-private struct HeaderWave: Shape {
-    func path(in rect: CGRect) -> Path {
-        Path { path in
-            path.move(to: CGPoint(x: 0, y: rect.height * 0.30))
-            path.addCurve(
-                to: CGPoint(x: rect.width, y: rect.height * 0.18),
-                control1: CGPoint(x: rect.width * 0.28, y: rect.height * 1.12),
-                control2: CGPoint(x: rect.width * 0.66, y: -rect.height * 0.38)
-            )
-            path.addLine(to: CGPoint(x: rect.width, y: rect.height))
-            path.addLine(to: CGPoint(x: 0, y: rect.height))
-            path.closeSubpath()
-        }
     }
 }
 
