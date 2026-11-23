@@ -27,7 +27,15 @@ struct ReaderPDFDocumentView: UIViewRepresentable {
         view.document = document
         let request = destination?.page == initialPage ? destination : nil
         context.coordinator.destination = destination
-        move(view, to: initialPage, query: request?.query)
+        // PDFKit can reset currentPage while its view is being attached.
+        // Defer the initial jump until the PDFView has entered the view hierarchy.
+        let startingPage = initialPage
+        let startingQuery = request?.query
+        DispatchQueue.main.async { [weak view, weak coordinator = context.coordinator] in
+            guard let view, let coordinator else { return }
+            move(view, to: startingPage, query: startingQuery)
+            coordinator.isReady = true
+        }
 
         context.coordinator.observer = NotificationCenter.default.addObserver(
             forName: .PDFViewPageChanged,
@@ -35,8 +43,10 @@ struct ReaderPDFDocumentView: UIViewRepresentable {
             queue: .main
         ) { [weak coordinator = context.coordinator, weak view] _ in
             DispatchQueue.main.async {
-                guard let view, let page = view.currentPage, let document = view.document else { return }
-                coordinator?.onPageChanged(document.index(for: page) + 1)
+                guard let coordinator, coordinator.isReady,
+                      let view, let page = view.currentPage,
+                      let document = view.document else { return }
+                coordinator.onPageChanged(document.index(for: page) + 1)
             }
         }
         return view
@@ -45,12 +55,22 @@ struct ReaderPDFDocumentView: UIViewRepresentable {
     func updateUIView(_ view: PDFView, context: Context) {
         context.coordinator.onPageChanged = onPageChanged
         if view.document !== document {
+            context.coordinator.isReady = false
             view.document = document
-            move(view, to: initialPage, query: nil)
+            DispatchQueue.main.async { [weak view] in
+                guard let view else { return }
+                move(view, to: initialPage, query: nil)
+                context.coordinator.isReady = true
+            }
         }
         if context.coordinator.destination != destination, let destination {
             context.coordinator.destination = destination
-            move(view, to: destination.page, query: destination.query)
+            context.coordinator.isReady = false
+            DispatchQueue.main.async { [weak view] in
+                guard let view else { return }
+                move(view, to: destination.page, query: destination.query)
+                context.coordinator.isReady = true
+            }
         }
     }
 
@@ -79,6 +99,7 @@ struct ReaderPDFDocumentView: UIViewRepresentable {
     final class Coordinator {
         var onPageChanged: (Int) -> Void
         var destination: PDFReaderDestination?
+        var isReady = false
         var observer: NSObjectProtocol?
 
         init(onPageChanged: @escaping (Int) -> Void) {
