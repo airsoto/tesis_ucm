@@ -41,8 +41,8 @@ struct PDFReaderView: View {
     }
 
     private var adaptiveBottomClearance: CGFloat {
-        if showAdaptiveControls { return 36 }
-        return adaptiveLayout == .paginated ? 168 : 112
+        if showAdaptiveControls { return adaptiveLayout == .paginated ? 110 : 52 }
+        return adaptiveLayout == .paginated ? 120 : 112
     }
 
     var body: some View {
@@ -71,7 +71,12 @@ struct PDFReaderView: View {
         .navigationTitle(thesis.title)
         .navigationBarTitleDisplayMode(.inline)
         .task(id: loadAttempt) { await loadDocument() }
-        .onDisappear { speech.stop() }
+        .onDisappear {
+            speech.stop()
+            if let document {
+                library.updateProgress(for: thesis.id, page: currentPage, pageCount: document.pageCount, mode: mode.rawValue)
+            }
+        }
     }
 
     private func reader(_ document: PDFDocument, source: PDFReadingText) -> some View {
@@ -167,6 +172,8 @@ struct PDFReaderView: View {
         .onChange(of: mode) { _, mode in
             if mode == .pdf { speech.stop() }
             if mode == .adaptive { showAdaptiveControls = false }
+            // Keep the same document page when changing between PDF and reflowed text.
+            if mode == .pdf { destination = PDFReaderDestination(page: currentPage, query: nil) }
             library.updateProgress(for: thesis.id, page: currentPage, pageCount: document.pageCount, mode: mode.rawValue)
         }
         .toolbar(.hidden, for: .tabBar)
@@ -391,8 +398,8 @@ struct PDFReaderView: View {
 
             let progress = library.progress[thesis.id]
             let savedPage = progress?.page ?? 1
-            // Cada tesis comienza en el lector adaptable; el PDF original sigue disponible desde el selector.
-            mode = .adaptive
+            // Restore the last reading mode as well as the page.
+            mode = progress?.mode == ReaderMode.pdf.rawValue ? .pdf : .adaptive
             currentPage = min(max(savedPage, 1), pdf.pageCount)
             contents = ReaderChapter.table(in: pdf)
             source = PDFReadingText(url: fileURL)
@@ -594,11 +601,12 @@ private struct AdaptiveReaderPage: View {
             .padding(.top, 22)
             // In paginated mode this padding is part of the scrollable content,
             // so the last paragraph can move completely above the bottom controls.
-            .padding(.bottom, 22 + bottomClearance)
+            .padding(.bottom, 72 + bottomClearance)
             .frame(maxWidth: .infinity)
         }
         .contentMargins(.top, 24, for: .scrollContent)
-        .contentMargins(.bottom, 12, for: .scrollContent)
+        .contentMargins(.bottom, 40, for: .scrollContent)
+        .safeAreaPadding(.bottom, 24)
         .scrollPosition(id: $position, anchor: .top)
         .onChange(of: position) { _, position in
             if let position { onPositionChanged(position) }
