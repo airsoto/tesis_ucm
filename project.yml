@@ -16,7 +16,7 @@ settings:
     INFOPLIST_KEY_CFBundleDisplayName: "Tesis UCM"
     INFOPLIST_KEY_UIApplicationSceneManifest_Generation: YES
     CODE_SIGN_STYLE: Automatic
-    MARKETING_VERSION: "1.1"
+    MARKETING_VERSION: "1.2"
     CURRENT_PROJECT_VERSION: "1"
     VERSIONING_SYSTEM: apple-generic
 
