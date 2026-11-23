@@ -51,7 +51,7 @@ struct CatalogHomeView: View {
     private var header: some View {
         ZStack(alignment: .topLeading) {
             GeometryReader { geometry in
-                Image("LibraryHeader")
+                Image(UIImage(named: "UCMHeaderPhoto") == nil ? "LibraryHeader" : "UCMHeaderPhoto")
                     .resizable()
                     .scaledToFill()
                     .frame(width: geometry.size.width, height: geometry.size.height)
