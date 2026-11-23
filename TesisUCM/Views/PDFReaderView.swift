@@ -722,6 +722,7 @@ private struct AdaptiveReaderPage: View {
                         foreground: UIColor(palette.foreground),
                         background: UIColor(palette.background)
                     )
+                    .frame(width: textSize.width, height: textSize.height, alignment: .topLeading)
                     .padding(.horizontal, horizontalInset)
                     .padding(.top, topInset)
                     .padding(.bottom, bottomInset)
@@ -857,8 +858,13 @@ private struct PaginatedTextView: UIViewRepresentable {
         view.isSelectable = true
         view.isScrollEnabled = false
         view.backgroundColor = background
+        view.contentInset = .zero
         view.textContainerInset = .zero
         view.textContainer.lineFragmentPadding = 0
+        view.textContainer.widthTracksTextView = true
+        view.textContainer.heightTracksTextView = false
+        view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+        view.setContentHuggingPriority(.defaultLow, for: .horizontal)
         view.adjustsFontForContentSizeCategory = true
         return view
     }
@@ -867,6 +873,12 @@ private struct PaginatedTextView: UIViewRepresentable {
         view.attributedText = text
         view.textColor = foreground
         view.backgroundColor = background
+        view.textContainer.widthTracksTextView = true
+    }
+
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UITextView, context: Context) -> CGSize? {
+        guard let width = proposal.width, let height = proposal.height else { return nil }
+        return CGSize(width: width, height: height)
     }
 }
 
