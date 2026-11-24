@@ -1,3 +1,4 @@
+
 import SwiftUI
 
 struct SettingsView: View {
@@ -18,12 +19,16 @@ struct SettingsView: View {
                             .font(.title2)
                             .foregroundStyle(AppTheme.burgundy)
                             .frame(width: 42, height: 42)
-                            .background(AppTheme.cream, in: RoundedRectangle(cornerRadius: 12))
+                            .background(
+                                AppTheme.cream,
+                                in: RoundedRectangle(cornerRadius: 12)
+                            )
 
                         VStack(alignment: .leading, spacing: 3) {
                             Text("Tesis UCM")
                                 .font(.headline)
                                 .foregroundStyle(AppTheme.ink)
+
                             Text("Biblioteca académica para iPhone")
                                 .font(.caption)
                                 .foregroundStyle(AppTheme.muted)
@@ -33,14 +38,31 @@ struct SettingsView: View {
                 }
 
                 Section("Catálogo") {
-                    LabeledContent("Registros disponibles", value: "\(library.theses.count)")
-                    LabeledContent("Versión del catálogo", value: library.catalogManifest.map { String($0.version) } ?? "Sin cargar")
+                    LabeledContent(
+                        "Registros disponibles",
+                        value: "\(library.theses.count)"
+                    )
+
+                    LabeledContent(
+                        "Versión del catálogo",
+                        value: library.catalogManifest.map {
+                            String($0.version)
+                        } ?? "Sin cargar"
+                    )
+
                     Button {
-                        Task { await library.refreshCatalog() }
+                        Task {
+                            await library.refreshCatalog()
+                        }
                     } label: {
                         HStack {
-                            Label("Actualizar catálogo", systemImage: "arrow.clockwise")
+                            Label(
+                                "Actualizar catálogo",
+                                systemImage: "arrow.clockwise"
+                            )
+
                             Spacer()
+
                             if library.isRefreshing {
                                 ProgressView()
                             }
@@ -54,7 +76,24 @@ struct SettingsView: View {
                     LabeledContent("Versión", value: appVersion)
                     LabeledContent("Plataforma", value: "iPhone")
                     LabeledContent("Lector", value: "PDFKit")
-                    LabeledContent("Desarrollado por", value: "Ángel Soto")
+
+                    LabeledContent("Desarrollado por") {
+                        if let url = URL(
+                            string: "https://airsoto.github.io/vet/"
+                        ) {
+                            Link(destination: url) {
+                                HStack(spacing: 5) {
+                                    Text("Ángel Soto")
+
+                                    Image(systemName: "arrow.up.right")
+                                        .font(.caption)
+                                }
+                                .foregroundStyle(AppTheme.burgundy)
+                            }
+                        } else {
+                            Text("Ángel Soto")
+                        }
+                    }
                 }
 
                 Section {
